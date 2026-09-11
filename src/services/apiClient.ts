@@ -36,6 +36,11 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
     headers,
   });
 
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('text/html')) {
+    throw new Error(`API endpoint ${endpoint} returned HTML instead of JSON.`);
+  }
+
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {

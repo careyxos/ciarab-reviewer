@@ -63,6 +63,51 @@ function saveDatabase() {
   }
 }
 
+import { getStore } from '@netlify/blobs';
+
+let blobStoreInstance: any = null;
+let blobStoreChecked = false;
+
+function getBlobStore() {
+  if (blobStoreChecked) return blobStoreInstance;
+  blobStoreChecked = true;
+  try {
+    blobStoreInstance = getStore('chobee-cloud-data');
+  } catch (e) {
+    blobStoreInstance = null;
+  }
+  return blobStoreInstance;
+}
+
+export async function syncWithBlobStore() {
+  const store = getBlobStore();
+  if (!store) return;
+  try {
+    const cloudDb = await store.get('database_json', { type: 'json' });
+    if (cloudDb && typeof cloudDb === 'object') {
+      memoryDb.users = { ...memoryDb.users, ...(cloudDb.users || {}) };
+      memoryDb.dailyUsage = { ...memoryDb.dailyUsage, ...(cloudDb.dailyUsage || {}) };
+      if (Array.isArray(cloudDb.usageLogs)) {
+        memoryDb.usageLogs = [...cloudDb.usageLogs, ...memoryDb.usageLogs].slice(0, 500);
+      }
+      memoryDb.materials = { ...memoryDb.materials, ...(cloudDb.materials || {}) };
+    }
+  } catch (err) {
+    // Silent fallback
+  }
+}
+
+export async function persistToBlobStore() {
+  saveDatabase();
+  const store = getBlobStore();
+  if (!store) return;
+  try {
+    await store.setJSON('database_json', memoryDb);
+  } catch (err) {
+    // Silent fallback
+  }
+}
+
 // Initialize on first load
 loadDatabase();
 
@@ -70,6 +115,7 @@ loadDatabase();
 
 export async function getUserByEmail(email: string): Promise<User | null> {
   loadDatabase();
+  await syncWithBlobStore();
   const normalized = email.toLowerCase().trim();
   const user = Object.values(memoryDb.users).find((u) => u.email.toLowerCase() === normalized);
   return user ? { ...user } : null;
@@ -77,12 +123,14 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
 export async function getUserById(id: string): Promise<User | null> {
   loadDatabase();
+  await syncWithBlobStore();
   const user = memoryDb.users[id];
   return user ? { ...user } : null;
 }
 
 export async function getUserByReferralCode(code: string): Promise<User | null> {
   loadDatabase();
+  await syncWithBlobStore();
   const normalized = code.toUpperCase().trim();
   const user = Object.values(memoryDb.users).find((u) => u.referral_code.toUpperCase() === normalized);
   return user ? { ...user } : null;
@@ -90,23 +138,26 @@ export async function getUserByReferralCode(code: string): Promise<User | null> 
 
 export async function createUser(user: User): Promise<User> {
   loadDatabase();
+  await syncWithBlobStore();
   memoryDb.users[user.id] = { ...user };
-  saveDatabase();
+  await persistToBlobStore();
   return { ...user };
 }
 
 export async function updateUser(id: string, updates: Partial<User>): Promise<User | null> {
   loadDatabase();
+  await syncWithBlobStore();
   const user = memoryDb.users[id];
   if (!user) return null;
   const updated = { ...user, ...updates };
   memoryDb.users[id] = updated;
-  saveDatabase();
+  await persistToBlobStore();
   return { ...updated };
 }
 
 export async function listAllUsers(): Promise<User[]> {
   loadDatabase();
+  await syncWithBlobStore();
   return Object.values(memoryDb.users).map((u) => ({ ...u }));
 }
 
