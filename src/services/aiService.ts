@@ -20,7 +20,34 @@ export async function generateStudyMaterial(
   content: string,
   options: GenerationOptions
 ): Promise<Omit<StudySet, 'id' | 'createdAt' | 'updatedAt'>> {
-  // If user provided a Gemini API Key or environment variable is set
+  // 1. First try secure backend endpoint (/api/ai-generate) with server-side token accounting
+  try {
+    const { apiRequest } = await import('./apiClient');
+    const res = await apiRequest<{
+      success: boolean;
+      data: Omit<StudySet, 'id' | 'createdAt' | 'updatedAt'>;
+      tokens: { remaining: number; used: number };
+    }>('/api/ai-generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        content,
+        options,
+        actionType: 'flashcards',
+      }),
+    });
+
+    if (res?.data) {
+      return res.data;
+    }
+  } catch (backendErr: any) {
+    // Propagate out-of-tokens error directly to UI
+    if (backendErr?.data?.code === 'OUT_OF_TOKENS' || backendErr?.status === 402) {
+      throw backendErr;
+    }
+    console.warn('Backend /api/ai-generate call failed or in local mock, falling back:', backendErr);
+  }
+
+  // 2. Direct Gemini call fallback if API key is provided locally
   const apiKey = (options.apiKey && options.apiKey.trim().length > 10) 
     ? options.apiKey.trim() 
     : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY.trim() : '');
@@ -30,11 +57,11 @@ export async function generateStudyMaterial(
       const result = await callGeminiAPI(content, { ...options, apiKey });
       if (result) return result;
     } catch (err) {
-      console.warn('Gemini API call failed, falling back to local smart engine:', err);
+      console.warn('Gemini API direct call failed, falling back to local smart engine:', err);
     }
   }
 
-  // Local Smart Generation Engine
+  // 3. Local Heuristic Engine Fallback
   return generateLocalMaterial(content, options);
 }
 

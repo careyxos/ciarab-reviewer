@@ -32,6 +32,12 @@ import { LibraryView } from './components/LibraryView';
 import { UploadModal } from './components/UploadModal';
 import { ShareModal } from './components/ShareModal';
 import { SecretMonthsaryModal } from './components/SecretMonthsaryModal';
+import { AuthModal } from './components/AuthModal';
+import { ProfileModal } from './components/ProfileModal';
+import { UsageView } from './components/UsageView';
+import { AdminDashboard } from './components/AdminDashboard';
+import { LandingView } from './components/LandingView';
+import { useAuth } from './context/AuthContext';
 import { ROMANTIC_DATA } from './data/memories';
 import { playHapticTap } from './services/audioService';
 
@@ -89,10 +95,12 @@ export const BIOME_THEMES: Record<BiomeTheme, { id: BiomeTheme; name: string; ic
 };
 
 export function App() {
+  const { isLoggedIn, isAdmin, isAuthModalOpen, closeAuthModal, authModalMode } = useAuth();
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin'>('dashboard');
   const [stats, setStats] = useState<UserStats>(getStoredStats());
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Aesthetic Biome Wallpaper State & Effects
   const [currentBiome, setCurrentBiome] = useState<BiomeTheme>(() => {
@@ -353,6 +361,7 @@ export function App() {
           stats={stats}
           onOpenUpload={() => setIsUploadOpen(true)}
           onOpenMonthsary={() => setIsMonthsaryOpen(true)}
+          onOpenProfile={() => setIsProfileOpen(true)}
           soundEnabled={soundEnabled}
           setSoundEnabled={setSoundEnabled}
         />
@@ -371,17 +380,58 @@ export function App() {
       {/* Main Content Area */}
       <main className="relative z-10 flex-1">
         {activeTab === 'dashboard' && (
-          <Dashboard
-            studySets={studySets}
-            stats={stats}
-            onSelectSet={handleSelectSet}
-            onOpenUpload={() => setIsUploadOpen(true)}
-            onOpenShare={(set) => setShareModalSet(set)}
-            onAddWater={handleAddWater}
-            onOpenMonthsary={() => setIsMonthsaryOpen(true)}
-            currentBiome={currentBiome}
-            onSelectBiome={handleSelectBiome}
+          isLoggedIn ? (
+            <Dashboard
+              studySets={studySets}
+              stats={stats}
+              onSelectSet={handleSelectSet}
+              onOpenUpload={() => setIsUploadOpen(true)}
+              onOpenShare={(set) => setShareModalSet(set)}
+              onAddWater={handleAddWater}
+              onOpenMonthsary={() => setIsMonthsaryOpen(true)}
+              onNavigateToUsage={() => setActiveTab('usage')}
+              currentBiome={currentBiome}
+              onSelectBiome={handleSelectBiome}
+            />
+          ) : (
+            <LandingView
+              initialSets={studySets}
+              onSelectSampleSet={(set) => handleSelectSet(set, 'flashcards')}
+              soundEnabled={soundEnabled}
+            />
+          )
+        )}
+
+        {activeTab === 'usage' && (
+          <UsageView
+            onBackToDashboard={() => setActiveTab('dashboard')}
+            soundEnabled={soundEnabled}
           />
+        )}
+
+        {activeTab === 'admin' && (
+          isAdmin ? (
+            <AdminDashboard
+              onBackToDashboard={() => setActiveTab('dashboard')}
+              soundEnabled={soundEnabled}
+            />
+          ) : (
+            <div className="py-16 text-center space-y-3">
+              <div className="text-4xl">🔒</div>
+              <h2 className="text-xl font-black text-chobee-navy-950 font-display">
+                Access Restricted
+              </h2>
+              <p className="text-xs text-slate-500 font-semibold">
+                You need Administrator privileges to view this console.
+              </p>
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-chobee-navy-900"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          )
         )}
 
         {activeTab === 'flashcards' && selectedSet && (
@@ -493,6 +543,21 @@ export function App() {
         isOpen={isMonthsaryOpen}
         onClose={() => setIsMonthsaryOpen(false)}
         onUnlockEasterEggAchievement={handleUnlockEasterEgg}
+      />
+
+      {/* Auth Modal (Login / Sign Up / Reset Password) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+        initialMode={authModalMode}
+        soundEnabled={soundEnabled}
+      />
+
+      {/* User Profile & Referral Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        soundEnabled={soundEnabled}
       />
     </div>
   );

@@ -12,13 +12,16 @@ import {
   HelpCircle,
   File,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Lock
 } from 'lucide-react';
 import { StudySet } from '../types/study';
 import { generateStudyMaterial, GenerationOptions } from '../services/aiService';
 import { extractTextFromPDF } from '../services/pdfParser';
 import { playCelebrationSound, playHapticTap } from '../services/audioService';
 import { sanitizeCard } from '../services/storageService';
+import { useAuth } from '../context/AuthContext';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -33,6 +36,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onStudySetCreated,
   soundEnabled,
 }) => {
+  const { user, dailyUsage, updateUsageRemaining, openAuthModal } = useAuth();
+  const REQUIRED_TOKENS = 10;
+  const hasEnoughTokens = user ? (user.role === 'admin' || dailyUsage.remaining >= REQUIRED_TOKENS) : true;
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState('');
@@ -186,7 +194,13 @@ Overview: Essential theoretical concepts, operational standards, review summarie
       });
     }, 750);
 
+    if (user && !hasEnoughTokens) {
+      setTokenError("You're out of AI tokens for today 💤 Your daily study credits will reset tomorrow.");
+      return;
+    }
+
     try {
+      setTokenError(null);
       const activeApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || undefined : undefined);
       const options: GenerationOptions = {
         title: title.trim() || (activeTab === 'upload' && file ? file.name.replace(/\.[^/.]+$/, '') : 'Lecture Notes Reviewer'),
@@ -200,6 +214,10 @@ Overview: Essential theoretical concepts, operational standards, review summarie
       };
 
       const generated = await generateStudyMaterial(rawContent, options);
+
+      if (user && user.role !== 'admin') {
+        updateUsageRemaining(Math.max(0, dailyUsage.remaining - REQUIRED_TOKENS));
+      }
 
       clearInterval(stepInterval);
       setGenerationStep(3);
@@ -225,10 +243,15 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         resetForm();
         onClose();
       }, 500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error generating material:', err);
       clearInterval(stepInterval);
       setIsGenerating(false);
+      if (err?.data?.code === 'OUT_OF_TOKENS' || err?.status === 402) {
+        setTokenError("You're out of AI tokens for today 💤 Your daily study credits will reset tomorrow.");
+      } else {
+        setTokenError(err?.message || 'Generation failed. Please try again.');
+      }
     }
   };
 
@@ -507,14 +530,50 @@ Overview: Essential theoretical concepts, operational standards, review summarie
               </div>
             </div>
 
+            {/* Token Cost and Balance Info */}
+            <div className="flex items-center justify-between px-1 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-slate-500">
+                <Zap className="w-3.5 h-3.5 text-chobee-pink-500 fill-chobee-pink-500" />
+                <span>Cost: <strong className="text-chobee-navy-900">{REQUIRED_TOKENS} Tokens</strong></span>
+              </div>
+              {user ? (
+                <span className={`font-bold text-xs ${hasEnoughTokens ? 'text-slate-600' : 'text-red-500'}`}>
+                  Available: <strong className={hasEnoughTokens ? 'text-chobee-navy-900 font-mono' : 'text-red-600 font-mono'}>{user.role === 'admin' ? 'Unlimited' : dailyUsage.remaining}</strong>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('login')}
+                  className="text-chobee-pink-600 font-bold hover:underline"
+                >
+                  Log in to track credits &rarr;
+                </button>
+              )}
+            </div>
+
+            {/* Token limit error notice if empty */}
+            {(tokenError || (user && !hasEnoughTokens)) && (
+              <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
+                <span className="text-base shrink-0">🌙</span>
+                <div>
+                  <strong className="block font-black text-chobee-navy-900">
+                    {tokenError || "You're out of AI tokens for today 💤"}
+                  </strong>
+                  <span className="font-semibold text-slate-500">
+                    Your daily study credits will reset tomorrow (in {dailyUsage.resetCountdown}).
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Generate Button */}
             <button
               onClick={handleStartGeneration}
               disabled={
-                activeTab === 'upload' ? !file : !pastedText.trim()
+                (activeTab === 'upload' ? !file : !pastedText.trim()) || (Boolean(user) && !hasEnoughTokens)
               }
               className={`w-full py-3.5 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-soft-pink transition-all active:scale-[0.97] ${
-                (activeTab === 'upload' ? file : pastedText.trim())
+                (activeTab === 'upload' ? file : pastedText.trim()) && (!user || hasEnoughTokens)
                   ? 'bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
               }`}

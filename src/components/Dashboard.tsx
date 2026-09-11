@@ -24,13 +24,15 @@ import {
   ChevronRight,
   Image as ImageIcon,
   Search,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { StudySet, UserStats } from '../types/study';
 import { isCardDue } from '../services/spacedRepetition';
 import { lofiPlayer, playHapticTap } from '../services/audioService';
 import { BIOME_THEMES, BiomeTheme } from '../App';
 import { ROMANTIC_DATA } from '../data/memories';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardProps {
   studySets: StudySet[];
@@ -40,6 +42,7 @@ interface DashboardProps {
   onOpenShare: (set: StudySet) => void;
   onAddWater?: () => void;
   onOpenMonthsary: () => void;
+  onNavigateToUsage?: () => void;
   currentBiome?: BiomeTheme;
   onSelectBiome?: (theme: BiomeTheme) => void;
 }
@@ -51,9 +54,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenUpload,
   onOpenShare,
   onOpenMonthsary,
+  onNavigateToUsage,
   currentBiome = 'sakura',
   onSelectBiome,
 }) => {
+  const { user, dailyUsage } = useAuth();
+
   // Interactive Photo Gallery Carousel State
   const photoGallery = ROMANTIC_DATA.polaroids.filter((p) => Boolean(p.imageUrl));
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -215,7 +221,58 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. Top iOS Split Widget Row: Aesthetic Photo Frame & MayorOS Hub          */}
+      {/* 2. Personalized User Dashboard Banner & Daily Token HUD                    */}
+      {/* ========================================================================= */}
+      <div className="glass-panel rounded-[32px] p-5 sm:p-7 border-2 border-white/90 shadow-glow-dual flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fadeIn">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100/90 text-chobee-pink-700 font-extrabold text-xs">
+            <span>🧸 Welcome back, {user ? user.displayName : 'Mayor Cia'} 👋</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-chobee-navy-950 font-display">
+            Ready for today's review session?
+          </h2>
+          <p className="text-xs text-slate-500 font-semibold">
+            Track your daily tokens, maintain your review streak, and master every concept.
+          </p>
+        </div>
+
+        {/* Daily Token Gauge */}
+        <div className="w-full md:w-auto flex-1 max-w-md bg-white/80 border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-2">
+          <div className="flex items-center justify-between text-xs font-black">
+            <span className="text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-chobee-pink-500 fill-chobee-pink-500" />
+              <span>Daily AI Tokens</span>
+            </span>
+            <span className="font-mono text-chobee-navy-900">
+              {user?.role === 'admin' ? 'Unlimited' : `${dailyUsage.remaining} / ${dailyUsage.allocated}`}
+            </span>
+          </div>
+
+          {user?.role !== 'admin' && (
+            <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/80">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, Math.round((dailyUsage.remaining / dailyUsage.allocated) * 100)))}%` }}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+            <span>Resets in: <strong className="text-chobee-navy-900 font-mono">{dailyUsage.resetCountdown}</strong></span>
+            {onNavigateToUsage && (
+              <button
+                onClick={onNavigateToUsage}
+                className="text-chobee-pink-600 hover:underline font-extrabold"
+              >
+                Usage History &rarr;
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. Top iOS Split Widget Row: Aesthetic Photo Frame & MayorOS Hub          */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Col (5 cols): Interactive Aesthetic Photo & Memory Gallery Widget */}

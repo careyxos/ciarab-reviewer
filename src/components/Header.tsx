@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
   Award, 
@@ -12,17 +12,27 @@ import {
   BrainCircuit,
   CheckCircle2,
   FileText,
-  Library
+  Library,
+  ChevronDown,
+  User as UserIcon,
+  Zap,
+  ShieldCheck,
+  LogOut,
+  Crown,
+  History
 } from 'lucide-react';
 import { UserStats } from '../types/study';
 import { lofiPlayer } from '../services/audioService';
+import { useAuth } from '../context/AuthContext';
+import { playHapticTap } from '../services/audioService';
 
 interface HeaderProps {
-  activeTab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library';
-  setActiveTab: (tab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library') => void;
+  activeTab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin';
+  setActiveTab: (tab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin') => void;
   stats: UserStats;
   onOpenUpload: () => void;
   onOpenMonthsary: () => void;
+  onOpenProfile: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
 }
@@ -33,27 +43,43 @@ export const Header: React.FC<HeaderProps> = ({
   stats,
   onOpenUpload,
   onOpenMonthsary,
+  onOpenProfile,
   soundEnabled,
   setSoundEnabled,
 }) => {
+  const { user, dailyUsage, isLoggedIn, isAdmin, logout, openAuthModal } = useAuth();
   const [greeting, setGreeting] = useState('');
   const [isLofiPlaying, setIsLofiPlaying] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateGreeting = () => {
       const hour = new Date().getHours();
+      const name = user ? user.displayName : 'Mayor Cia';
       if (hour >= 5 && hour < 12) {
-        setGreeting('Good morning, my pretty Mayor 🌸');
+        setGreeting(`Good morning, ${name} 🌸`);
       } else if (hour >= 12 && hour < 18) {
-        setGreeting('Good afternoon, Love lovee ko / Pretty Treasurer 💙');
+        setGreeting(`Good afternoon, ${name} 💙`);
       } else {
-        setGreeting('Good evening, my pretty bunny 🌙');
+        setGreeting(`Good evening, ${name} 🌙`);
       }
     };
 
     updateGreeting();
     const timer = setInterval(updateGreeting, 60000);
     return () => clearInterval(timer);
+  }, [user]);
+
+  // Close menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const toggleLofi = () => {
@@ -76,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-semibold text-chobee-pink-600 font-display tracking-wide">{greeting}</span>
             <span className="hidden md:inline text-chobee-navy-700/60">• Rereviewhin ka ng Baby Bear mo 🧸🩵</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             {/* Ambient Study Beats Button */}
             <button
               onClick={toggleLofi}
@@ -132,79 +158,233 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Center Navigation Tabs (Desktop) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-slate-100/60 p-1 rounded-2xl border border-slate-200/60 backdrop-blur-md">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-white text-chobee-pink-600 shadow-sm'
-                  : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard</span>
-            </button>
+          {isLoggedIn && (
+            <nav className="hidden lg:flex items-center gap-1 bg-slate-100/60 p-1 rounded-2xl border border-slate-200/60 backdrop-blur-md">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'dashboard'
+                    ? 'bg-white text-chobee-pink-600 shadow-sm'
+                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('library')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'library'
-                  ? 'bg-white text-chobee-blue-600 shadow-sm'
-                  : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
-              }`}
-            >
-              <Library className="w-4 h-4" />
-              <span>Materials</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('library')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'library'
+                    ? 'bg-white text-chobee-blue-600 shadow-sm'
+                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <Library className="w-4 h-4" />
+                <span>Materials</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('flashcards')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'flashcards'
-                  ? 'bg-white text-purple-600 shadow-sm'
-                  : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
-              }`}
-            >
-              <BrainCircuit className="w-4 h-4" />
-              <span>Flashcards</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('flashcards')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'flashcards'
+                    ? 'bg-white text-purple-600 shadow-sm'
+                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <BrainCircuit className="w-4 h-4" />
+                <span>Flashcards</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('quiz')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'quiz'
-                  ? 'bg-white text-chobee-pink-600 shadow-sm'
-                  : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Quiz Mode</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('quiz')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'quiz'
+                    ? 'bg-white text-chobee-pink-600 shadow-sm'
+                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Quiz Mode</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('summary')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'summary'
-                  ? 'bg-white text-chobee-blue-600 shadow-sm'
-                  : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Study Guide</span>
-            </button>
-          </nav>
+              <button
+                onClick={() => setActiveTab('summary')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'summary'
+                    ? 'bg-white text-chobee-blue-600 shadow-sm'
+                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Study Guide</span>
+              </button>
+            </nav>
+          )}
 
-          {/* Right Action & Stats Bar */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Primary Action Button: + Create Study Set */}
-            <button
-              onClick={onOpenUpload}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-semibold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Create Set</span>
-              <span className="sm:hidden">New</span>
-            </button>
+          {/* Right Action Bar */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isLoggedIn ? (
+              <>
+                {/* Daily AI Token HUD Pill */}
+                <button
+                  onClick={() => {
+                    if (soundEnabled) playHapticTap();
+                    setActiveTab('usage');
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200/80 shadow-xs transition-all text-left active:scale-95 group"
+                  title={`Resets in ${dailyUsage.resetCountdown}`}
+                >
+                  <div className="w-6 h-6 rounded-xl bg-pink-100 flex items-center justify-center text-xs">
+                    🧠
+                  </div>
+                  <div className="hidden sm:block">
+                    <div className="flex items-center gap-1 text-xs font-black text-chobee-navy-900 leading-none">
+                      <span>{user?.role === 'admin' ? 'Unlimited' : `${dailyUsage.remaining}/${dailyUsage.allocated}`}</span>
+                      {dailyUsage.remaining <= 20 && user?.role !== 'admin' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400 font-mono">
+                      {dailyUsage.resetCountdown}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Primary Action Button: + Create Study Set */}
+                <button
+                  onClick={onOpenUpload}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-semibold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Create Set</span>
+                  <span className="sm:hidden">New</span>
+                </button>
+
+                {/* Profile & Settings Dropdown Menu */}
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => {
+                      if (soundEnabled) playHapticTap();
+                      setIsUserMenuOpen(!isUserMenuOpen);
+                    }}
+                    className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200/80 shadow-xs transition-all active:scale-95"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 p-0.5 flex items-center justify-center text-sm shadow-xs">
+                      <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                        🧸
+                      </div>
+                    </div>
+                    <span className="hidden md:inline font-bold text-xs text-chobee-navy-900 max-w-[85px] truncate">
+                      {user?.displayName}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 glass-panel rounded-2xl border border-pink-200/90 shadow-xl py-2 z-50 animate-scaleIn text-xs font-bold text-chobee-navy-900">
+                      <div className="px-3 py-2 border-b border-slate-100">
+                        <div className="text-sm font-black truncate">{user?.displayName}</div>
+                        <div className="text-[11px] text-slate-400 font-mono truncate">{user?.email}</div>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-pink-100 text-pink-700">
+                          {user?.role} plan
+                        </span>
+                      </div>
+
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setActiveTab('dashboard');
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-chobee-pink-500" />
+                          <span>Study Dashboard</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('library');
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
+                        >
+                          <Library className="w-4 h-4 text-chobee-blue-500" />
+                          <span>My Study Materials</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('usage');
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
+                        >
+                          <Zap className="w-4 h-4 text-amber-500" />
+                          <span>Daily AI Tokens ({dailyUsage.remaining})</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            onOpenProfile();
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
+                        >
+                          <UserIcon className="w-4 h-4 text-purple-500" />
+                          <span>Profile & Referral Link</span>
+                        </button>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setActiveTab('admin');
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-purple-50 flex items-center gap-2.5 transition-colors text-purple-700"
+                          >
+                            <Crown className="w-4 h-4 text-purple-600" />
+                            <span>Admin Console</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="pt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-red-50 text-red-600 flex items-center gap-2.5 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Log Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Logged Out Buttons */
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openAuthModal('login')}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/80 hover:bg-white text-xs font-bold text-chobee-navy-900 border border-slate-200/80 shadow-xs active:scale-95 transition-all"
+                >
+                  Log In
+                </button>
+
+                <button
+                  onClick={() => openAuthModal('signup')}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white text-xs font-black shadow-soft-pink active:scale-95 transition-all"
+                >
+                  Sign Up (Free)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
