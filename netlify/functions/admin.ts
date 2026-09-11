@@ -22,16 +22,16 @@ export const handler: Handler = async (event: HandlerEvent) => {
     }
 
     const payload = verifySessionToken(token);
-    if (!payload || payload.role !== 'admin') {
-      return {
-        statusCode: 403,
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ error: 'Access denied: Admin privileges required.' }),
-      };
-    }
+    const ADMIN_EMAILS = [
+      'careysison21@gmail.com',
+      'carey@chobee.app',
+      ...(process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase().split(',').map((e: string) => e.trim()) : [])
+    ];
 
-    const adminUser = await getUserById(payload.userId);
-    if (!adminUser || adminUser.role !== 'admin' || adminUser.is_disabled) {
+    const isEmailAdmin = Boolean(payload?.email && ADMIN_EMAILS.includes(payload.email.toLowerCase().trim()));
+    const adminUser = payload?.userId ? await getUserById(payload.userId) : null;
+
+    if (!payload || (!isEmailAdmin && (!adminUser || adminUser.role !== 'admin' || adminUser.is_disabled))) {
       return {
         statusCode: 403,
         headers: JSON_HEADERS,
