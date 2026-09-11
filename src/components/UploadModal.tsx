@@ -8,13 +8,10 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Sliders, 
-  Globe, 
-  HelpCircle,
   File,
   Layers,
   ArrowRight,
-  Zap,
-  Lock
+  Zap
 } from 'lucide-react';
 import { StudySet } from '../types/study';
 import { generateStudyMaterial, GenerationOptions } from '../services/aiService';

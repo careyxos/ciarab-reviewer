@@ -244,7 +244,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => onSwitchMode('quiz')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-chobee-blue-600 font-bold text-xs border border-blue-200 transition-all active:scale-95"

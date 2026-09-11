@@ -68,7 +68,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const isEmpty = dailyUsage.remaining <= 0;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto py-4 animate-fadeIn">
+    <div className="space-y-6 max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 pb-20 sm:pb-8 animate-fadeIn">
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <button

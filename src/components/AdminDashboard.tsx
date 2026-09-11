@@ -3,32 +3,29 @@ import {
   ShieldCheck, 
   Users, 
   Zap, 
-  Activity, 
   Search, 
   CheckCircle2, 
   AlertCircle, 
   ArrowLeft, 
   RotateCcw, 
-  Edit, 
-  Ban, 
-  Check, 
   Crown, 
   Sparkles, 
   Download, 
   Calendar, 
   UserCheck, 
-  Plus,
-  Radio,
-  Smartphone,
-  Laptop,
-  Tablet,
-  Clock,
-  Bell,
-  X,
-  Layers,
-  HelpCircle,
+  Smartphone, 
+  Laptop, 
+  Tablet, 
+  Clock, 
+  Bell, 
+  X, 
+  Layers, 
   FileText,
-  MessageSquare
+  Radio,
+  Activity,
+  Check,
+  Edit,
+  Ban
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/apiClient';
@@ -467,7 +464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-4 animate-fadeIn">
+    <div className="space-y-6 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 pb-20 sm:pb-8 animate-fadeIn">
       {/* Real-time New User Registration Banner */}
       {newUserNotification && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg flex items-center justify-between animate-bounce">

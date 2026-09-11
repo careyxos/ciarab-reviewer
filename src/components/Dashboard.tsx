@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Sparkles, 
-  BrainCircuit, 
   CheckCircle2, 
   Clock, 
   Wind, 
@@ -9,7 +7,7 @@ import {
   Share2, 
   FileText, 
   Play, 
-  Pause,
+  Pause, 
   Upload, 
   Layers, 
   Heart,
@@ -18,11 +16,8 @@ import {
   Battery,
   Volume2,
   Disc,
-  Smartphone,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Image as ImageIcon,
   Search,
   X,
   Zap
@@ -30,7 +25,7 @@ import {
 import { StudySet, UserStats } from '../types/study';
 import { isCardDue } from '../services/spacedRepetition';
 import { lofiPlayer, playHapticTap } from '../services/audioService';
-import { BIOME_THEMES, BiomeTheme } from '../App';
+import { BiomeTheme } from '../App';
 import { ROMANTIC_DATA } from '../data/memories';
 import { useAuth } from '../context/AuthContext';
 
@@ -55,8 +50,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenShare,
   onOpenMonthsary,
   onNavigateToUsage,
-  currentBiome = 'sakura',
-  onSelectBiome,
 }) => {
   const { user, dailyUsage } = useAuth();
 
@@ -64,7 +57,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const photoGallery = ROMANTIC_DATA.polaroids.filter((p) => Boolean(p.imageUrl));
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isPhotoPaused, setIsPhotoPaused] = useState(false);
-  const [isBiomeMenuOpen, setIsBiomeMenuOpen] = useState(false);
 
   // Auto rotate photo gallery every 7 seconds if not paused
   useEffect(() => {
@@ -175,22 +167,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
 
   return (
-    <div className="space-y-6 pb-24 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4">
+    <div className="space-y-6 pb-28 sm:pb-24 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4">
       {/* ========================================================================= */}
       {/* 1. iOS App Library Translucent Glass Search & Control Center Capsule Pill  */}
       {/* ========================================================================= */}
-      <div className="ios-glass-pill px-4 sm:px-6 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs font-bold text-chobee-navy-800">
-        <div className="flex items-center gap-2.5">
-          <span className="text-chobee-pink-600 font-display font-black tracking-wide">
-            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-          <span className="text-slate-400">•</span>
-          <span className="text-slate-700 font-semibold">{currentWeekday}, {currentMonthName} {currentDay}</span>
+      <div className="ios-glass-pill !rounded-3xl sm:!rounded-full px-3.5 sm:px-6 py-2.5 flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs font-bold text-chobee-navy-800">
+        <div className="w-full md:w-auto flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-chobee-pink-600 font-display font-black tracking-wide">
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-700 font-semibold text-[11px] sm:text-xs">{currentWeekday}, {currentMonthName} {currentDay}</span>
+          </div>
+
+          {/* Mobile Battery Pill (Shown in top line on phones) */}
+          <div className="flex md:hidden items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/50 px-2 py-0.5 rounded-lg text-emerald-800 text-[10px] font-bold backdrop-blur-xs">
+            <Battery className="w-3 h-3 fill-emerald-600" />
+            <span>100% ⚡</span>
+          </div>
         </div>
 
         {/* Center: Authentic iOS "App Library" Search Pill */}
         <div className="relative flex-1 max-w-sm w-full">
-          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/45 backdrop-blur-md border border-white/80 shadow-inner text-chobee-navy-900 focus-within:bg-white/70 focus-within:border-white transition-all">
+          <div className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-full bg-white/45 backdrop-blur-md border border-white/80 shadow-inner text-chobee-navy-900 focus-within:bg-white/70 focus-within:border-white transition-all">
             <Search className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
             <input 
               type="text"
@@ -207,9 +207,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Right: Status & Battery */}
-        <div className="flex items-center gap-2.5">
-          <span className="hidden md:flex items-center gap-1 text-[11px] text-chobee-blue-600 font-semibold">
+        {/* Right: Status & Battery (Desktop) */}
+        <div className="hidden md:flex items-center gap-2.5">
+          <span className="flex items-center gap-1 text-[11px] text-chobee-blue-600 font-semibold">
             <Wifi className="w-3.5 h-3.5" />
             <span>Chobee 🩵</span>
           </span>
@@ -223,12 +223,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ========================================================================= */}
       {/* 2. Personalized User Dashboard Banner & Daily Token HUD                    */}
       {/* ========================================================================= */}
-      <div className="glass-panel rounded-[32px] p-5 sm:p-7 border-2 border-white/90 shadow-glow-dual flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fadeIn">
+      <div className="glass-panel rounded-[26px] sm:rounded-[32px] p-4 sm:p-7 border-2 border-white/90 shadow-glow-dual flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 animate-fadeIn">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100/90 text-chobee-pink-700 font-extrabold text-xs">
             <span>🧸 Welcome back, {user ? user.displayName : 'Mayor Cia'} 👋</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-chobee-navy-950 font-display">
+          <h2 className="text-lg sm:text-2xl font-black text-chobee-navy-950 font-display">
             Ready for today's review session?
           </h2>
           <p className="text-xs text-slate-500 font-semibold">
@@ -237,7 +237,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Daily Token Gauge */}
-        <div className="w-full md:w-auto flex-1 max-w-md bg-white/80 border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-2">
+        <div className="w-full md:w-auto flex-1 max-w-md bg-white/80 border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 shadow-xs space-y-2">
           <div className="flex items-center justify-between text-xs font-black">
             <span className="text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-chobee-pink-500 fill-chobee-pink-500" />
@@ -274,14 +274,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ========================================================================= */}
       {/* 3. Top iOS Split Widget Row: Aesthetic Photo Frame & MayorOS Hub          */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
         {/* Left Col (5 cols): Interactive Aesthetic Photo & Memory Gallery Widget */}
         <div 
           onMouseEnter={() => setIsPhotoPaused(true)}
           onMouseLeave={() => setIsPhotoPaused(false)}
-          className="lg:col-span-5 ios-glass-container p-4 sm:p-5 relative overflow-hidden group flex flex-col justify-between"
+          className="lg:col-span-5 ios-glass-container p-3.5 sm:p-5 relative overflow-hidden group flex flex-col justify-between"
         >
-          <div className="relative w-full aspect-square max-h-72 sm:max-h-80 rounded-[28px] overflow-hidden shadow-inner border-2 border-white/80 group/frame">
+          <div className="relative w-full aspect-[16/10] sm:aspect-square max-h-56 sm:max-h-80 rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-inner border-2 border-white/80 group/frame">
             <img 
               src={currentPhoto.imageUrl} 
               alt={currentPhoto.title} 
@@ -296,18 +296,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span>{currentPhoto.tag}</span>
             </div>
 
-            {/* Navigation Chevrons */}
-            <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {/* Navigation Chevrons (Touch-visible on mobile, hover-revealed on desktop) */}
+            <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-none">
               <button
                 onClick={handlePrevPhoto}
-                className="pointer-events-auto w-8 h-8 rounded-full bg-white/80 hover:bg-white text-chobee-navy-900 flex items-center justify-center shadow-md active:scale-90 transition-transform backdrop-blur-xs"
+                className="pointer-events-auto w-8 h-8 rounded-full bg-white/85 hover:bg-white text-chobee-navy-900 flex items-center justify-center shadow-md active:scale-90 transition-transform backdrop-blur-xs"
                 title="Previous Photo"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleNextPhoto}
-                className="pointer-events-auto w-8 h-8 rounded-full bg-white/80 hover:bg-white text-chobee-navy-900 flex items-center justify-center shadow-md active:scale-90 transition-transform backdrop-blur-xs"
+                className="pointer-events-auto w-8 h-8 rounded-full bg-white/85 hover:bg-white text-chobee-navy-900 flex items-center justify-center shadow-md active:scale-90 transition-transform backdrop-blur-xs"
                 title="Next Photo"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -315,7 +315,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Bottom Caption Overlay */}
-            <div className="absolute bottom-3 inset-x-3 flex flex-col gap-0.5 p-2.5 rounded-2xl bg-white/60 backdrop-blur-xl border border-white/80 shadow-md">
+            <div className="absolute bottom-2.5 inset-x-2.5 sm:bottom-3 sm:inset-x-3 flex flex-col gap-0.5 p-2 sm:p-2.5 rounded-2xl bg-white/65 backdrop-blur-xl border border-white/80 shadow-md">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-chobee-navy-900 truncate">
                   {currentPhoto.title}
@@ -331,7 +331,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Dots Indicator */}
-          <div className="flex items-center justify-center gap-1.5 pt-3">
+          <div className="flex items-center justify-center gap-1.5 pt-2.5 sm:pt-3">
             {photoGallery.map((p, idx) => (
               <button
                 key={p.id}
@@ -351,19 +351,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Col (7 cols): MayorOS System & Study Hub Widget (Control Center) */}
-        <div className="lg:col-span-7 ios-glass-container p-6 flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between border-b border-white/40 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-chobee-pink-400/90 via-pink-300/80 to-chobee-blue-400/90 p-0.5 shadow-soft-pink flex items-center justify-center">
-                <div className="w-full h-full bg-white/90 backdrop-blur-md rounded-[14px] flex items-center justify-center text-xl">
+        <div className="lg:col-span-7 ios-glass-container p-4 sm:p-6 flex flex-col justify-between space-y-3.5 sm:space-y-4">
+          <div className="flex items-center justify-between border-b border-white/40 pb-2.5 sm:pb-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-chobee-pink-400/90 via-pink-300/80 to-chobee-blue-400/90 p-0.5 shadow-soft-pink flex items-center justify-center flex-shrink-0">
+                <div className="w-full h-full bg-white/90 backdrop-blur-md rounded-[14px] flex items-center justify-center text-lg sm:text-xl">
                   🌸
                 </div>
               </div>
               <div>
-                <h2 className="text-lg sm:text-xl font-extrabold text-chobee-navy-900 font-display">
+                <h2 className="text-base sm:text-xl font-extrabold text-chobee-navy-900 font-display">
                   Mayor Cia's Control Center
                 </h2>
-                <p className="text-xs text-chobee-pink-600 font-semibold">
+                <p className="text-[11px] sm:text-xs text-chobee-pink-600 font-semibold truncate">
                   MayorOS 26.0 • Liquid Glass AI Study Suite
                 </p>
               </div>
@@ -375,44 +375,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* iOS System Info Stat Blocks (2x2 Glass Tiles) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="ios-glass-tile p-3 text-center space-y-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Storage</div>
-              <div className="text-lg font-black text-chobee-pink-600 font-display">256 GB</div>
-              <div className="text-[10px] text-chobee-pink-600 font-semibold">{stats.totalMastered} Mastered</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <div className="ios-glass-tile p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1 min-w-0">
+              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 tracking-wider truncate">Storage</div>
+              <div className="text-base sm:text-lg font-black text-chobee-pink-600 font-display">256 GB</div>
+              <div className="text-[9px] sm:text-[10px] text-chobee-pink-600 font-semibold truncate">{stats.totalMastered} Mastered</div>
             </div>
 
-            <div className="ios-glass-tile p-3 text-center space-y-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Accuracy</div>
-              <div className="text-lg font-black text-chobee-blue-600 font-display">{accuracyPercentage}%</div>
-              <div className="text-[10px] text-chobee-blue-600 font-semibold">{stats.quizzesCompleted} Tests</div>
+            <div className="ios-glass-tile p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1 min-w-0">
+              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 tracking-wider truncate">Accuracy</div>
+              <div className="text-base sm:text-lg font-black text-chobee-blue-600 font-display">{accuracyPercentage}%</div>
+              <div className="text-[9px] sm:text-[10px] text-chobee-blue-600 font-semibold truncate">{stats.quizzesCompleted} Tests</div>
             </div>
 
-            <div className="ios-glass-tile p-3 text-center space-y-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Reviewers</div>
-              <div className="text-lg font-black text-purple-600 font-display">{studySets.length}</div>
-              <div className="text-[10px] text-purple-600 font-semibold">{totalCardsAcrossSets} Cards</div>
+            <div className="ios-glass-tile p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1 min-w-0">
+              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 tracking-wider truncate">Reviewers</div>
+              <div className="text-base sm:text-lg font-black text-purple-600 font-display">{studySets.length}</div>
+              <div className="text-[9px] sm:text-[10px] text-purple-600 font-semibold truncate">{totalCardsAcrossSets} Cards</div>
             </div>
 
-            <div className="ios-glass-tile p-3 text-center space-y-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Status</div>
-              <div className="text-lg font-black text-emerald-600 font-display">Active</div>
-              <div className="text-[10px] text-emerald-600 font-semibold">Ready to Ace 🌸</div>
+            <div className="ios-glass-tile p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1 min-w-0">
+              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 tracking-wider truncate">Status</div>
+              <div className="text-base sm:text-lg font-black text-emerald-600 font-display">Active</div>
+              <div className="text-[9px] sm:text-[10px] text-emerald-600 font-semibold truncate">Ready to Ace 🌸</div>
             </div>
           </div>
 
-          {/* Quick Action Launcher Buttons */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          {/* Quick Action Launcher Buttons - Responsive Stack on Phones */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-2">
             <button
               onClick={onOpenUpload}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-chobee-pink-500/90 to-chobee-blue-500/90 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-extrabold text-xs sm:text-sm shadow-soft-pink active:scale-95 transition-all border border-white/50 backdrop-blur-md"
+              className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-4 rounded-2xl bg-gradient-to-r from-chobee-pink-500/90 to-chobee-blue-500/90 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-extrabold text-xs sm:text-sm shadow-soft-pink active:scale-95 transition-all border border-white/50 backdrop-blur-md"
             >
               <Upload className="w-4 h-4" />
               <span>+ Upload Reviewer (PDF / Notes)</span>
             </button>
             <button
               onClick={() => studySets[0] && onSelectSet(studySets[0], 'flashcards')}
-              className="flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-white/55 hover:bg-white/75 text-chobee-navy-900 font-bold text-xs sm:text-sm border border-white/80 shadow-xs active:scale-95 transition-all backdrop-blur-md"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-2xl bg-white/55 hover:bg-white/75 text-chobee-navy-900 font-bold text-xs sm:text-sm border border-white/80 shadow-xs active:scale-95 transition-all backdrop-blur-md whitespace-nowrap"
             >
               <Play className="w-4 h-4 text-chobee-pink-500 fill-chobee-pink-400" />
               <span>Start Quick Review</span>
@@ -424,9 +424,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ========================================================================= */}
       {/* 3. iOS Middle Row: Vinyl Record Player, Live Calendar & Breathing Guide   */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* WIDGET 1: Mini Vinyl Turntable / Melody Player Widget */}
-        <div className="ios-glass-container p-5 flex flex-col justify-between">
+        <div className="ios-glass-container p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-chobee-pink-600 flex items-center gap-1.5">
               <Disc className="w-3.5 h-3.5 text-chobee-pink-500" />
@@ -438,10 +438,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Vinyl Record Visual */}
-          <div className="my-3 flex items-center justify-center gap-3 sm:gap-4">
+          <div className="my-2.5 sm:my-3 flex items-center justify-center gap-3 sm:gap-4">
             <div className="relative flex items-center justify-center">
               {/* Mini Album Cover Sleeve */}
-              <div className="w-16 h-20 rounded-xl overflow-hidden shadow-md border border-white/70 -rotate-6 hidden sm:block mr-2 relative z-0 flex-shrink-0">
+              <div className="w-14 h-18 sm:w-16 sm:h-20 rounded-xl overflow-hidden shadow-md border border-white/70 -rotate-6 hidden sm:block mr-2 relative z-0 flex-shrink-0">
                 <img 
                   src="/assets/aesthetic_lace_lilies.jpg" 
                   alt="FLOWER Album Art" 
@@ -451,15 +451,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {/* Vinyl Disc Body */}
               <div 
-                className={`w-24 h-24 rounded-full bg-slate-900 border-4 border-slate-800 shadow-lg flex items-center justify-center relative z-10 flex-shrink-0 ${
+                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-900 border-4 border-slate-800 shadow-lg flex items-center justify-center relative z-10 flex-shrink-0 ${
                   isMusicPlaying ? 'animate-spin-slow' : 'paused-spin'
                 }`}
               >
                 {/* Concentric Grooves */}
-                <div className="w-20 h-20 rounded-full border border-slate-700/60 flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full border border-slate-700/40 flex items-center justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-slate-700/60 flex items-center justify-center">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border border-slate-700/40 flex items-center justify-center">
                     {/* Pink Center Label */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-400 to-pink-300 border-2 border-white flex items-center justify-center text-xs shadow-inner">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-pink-400 to-pink-300 border-2 border-white flex items-center justify-center text-xs shadow-inner">
                       🎀
                     </div>
                   </div>
@@ -467,14 +467,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1 max-w-[130px] z-10">
+            <div className="space-y-0.5 sm:space-y-1 min-w-0 max-w-[140px] sm:max-w-[150px] z-10">
               <div className="text-xs font-black text-chobee-navy-900 truncate">
                 花 (FLOWER)
               </div>
               <div className="text-[11px] font-semibold text-chobee-pink-600 truncate">
                 Chobee Lofi Melody
               </div>
-              <div className="text-[10px] text-slate-500 font-medium">
+              <div className="text-[10px] text-slate-500 font-medium truncate">
                 Relaxing study chords
               </div>
             </div>
@@ -491,11 +491,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
               }`}
             >
               {isMusicPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-              <span>{isMusicPlaying ? 'Pause Melody' : 'Play Lofi'}</span>
+              <span>{isMusicPlaying ? 'Pause' : 'Play Lofi'}</span>
             </button>
 
             <div className="flex items-center gap-1.5 bg-white/50 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/70">
-              <Volume2 className="w-3.5 h-3.5 text-slate-500" />
+              <Volume2 className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
               <input
                 type="range"
                 min="0"
@@ -503,14 +503,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 step="0.05"
                 value={musicVolume}
                 onChange={handleVolumeChange}
-                className="w-14 h-1 accent-chobee-pink-500 cursor-pointer"
+                className="w-12 sm:w-14 h-1 accent-chobee-pink-500 cursor-pointer"
               />
             </div>
           </div>
         </div>
 
         {/* WIDGET 2: Live Calendar & Clock Widget */}
-        <div className="ios-glass-container p-5 flex flex-col justify-between">
+        <div className="ios-glass-container p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-chobee-blue-600 flex items-center gap-1.5">
               <CalendarIcon className="w-3.5 h-3.5 text-chobee-blue-500" />
@@ -522,7 +522,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Mini Calendar Grid */}
-          <div className="my-2">
+          <div className="my-1.5 sm:my-2">
             <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-500 mb-1">
               <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
             </div>
@@ -538,7 +538,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 return (
                   <div
                     key={`day-${dayNum}`}
-                    className={`py-1 rounded-lg text-xs font-semibold ${
+                    className={`py-1 rounded-lg text-[11px] sm:text-xs font-semibold ${
                       isToday
                         ? 'bg-chobee-pink-500 text-white font-extrabold shadow-soft-pink'
                         : 'text-chobee-navy-800 hover:bg-white/40'
@@ -552,23 +552,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Bottom Today Info */}
-          <div className="text-center pt-2 border-t border-white/40 text-[11px] text-chobee-pink-600 font-semibold flex items-center justify-center gap-1.5">
+          <div className="text-center pt-2 border-t border-white/40 text-[10px] sm:text-[11px] text-chobee-pink-600 font-semibold flex items-center justify-center gap-1.5">
             <span>✨</span>
             <span>No exam stress today • Focus & smile!</span>
           </div>
         </div>
 
         {/* WIDGET 3: Peaceful Mind Breathing Guide Widget */}
-        <div className="ios-glass-container p-5 flex flex-col items-center justify-between text-center relative overflow-hidden">
+        <div className="ios-glass-container p-4 sm:p-5 flex flex-col items-center justify-between text-center relative overflow-hidden">
           <div className="text-xs font-bold uppercase tracking-wider text-chobee-blue-600 flex items-center gap-1.5">
             <Wind className="w-3.5 h-3.5 text-chobee-blue-500" />
             <span>Peaceful Mind Guide</span>
           </div>
 
           {/* Animated Breathing Circle */}
-          <div className="relative my-3 flex items-center justify-center w-28 h-28">
+          <div className="relative my-2.5 sm:my-3 flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28">
             <div 
-              className={`absolute w-24 h-24 rounded-full transition-all duration-1000 ${
+              className={`absolute w-20 h-20 sm:w-24 sm:h-24 rounded-full transition-all duration-1000 ${
                 breathPhase === 'Inhale'
                   ? 'bg-gradient-to-tr from-pink-300/80 to-blue-300/80 scale-125 opacity-70 blur-xs'
                   : breathPhase === 'Hold'
@@ -576,11 +576,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   : 'bg-gradient-to-tr from-blue-200/80 to-pink-200/80 scale-95 opacity-50'
               }`}
             />
-            <div className="relative z-10 w-20 h-20 rounded-full bg-white/80 backdrop-blur-md shadow-soft-blue flex flex-col items-center justify-center border border-white/90">
+            <div className="relative z-10 w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-white/80 backdrop-blur-md shadow-soft-blue flex flex-col items-center justify-center border border-white/90">
               <span className="text-[10px] font-extrabold text-chobee-navy-800 font-display uppercase tracking-wider">
                 {breathPhase}
               </span>
-              <span className="text-base font-black text-chobee-blue-600 font-display">
+              <span className="text-sm sm:text-base font-black text-chobee-blue-600 font-display">
                 {breathSeconds}s
               </span>
             </div>
@@ -597,25 +597,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ========================================================================= */}
       {/* 4. Chobee's Love Note Banner with Vintage Lace & Lilies                   */}
       {/* ========================================================================= */}
-      <div className="ios-glass-container p-5 sm:p-6 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="ios-glass-container p-4 sm:p-6 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         {/* Soft Vintage Lace Lilies Backdrop Texture */}
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none mix-blend-multiply"
           style={{ backgroundImage: `url('/assets/aesthetic_lace_lilies.jpg')` }}
         />
 
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/80 backdrop-blur-md shadow-soft-pink flex items-center justify-center text-2xl border border-white/80 flex-shrink-0">
+        <div className="relative z-10 flex items-center gap-3 sm:gap-3.5">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/80 backdrop-blur-md shadow-soft-pink flex items-center justify-center text-xl sm:text-2xl border border-white/80 flex-shrink-0">
             🧸
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5 sm:space-y-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-black text-chobee-navy-900 font-display">
+              <h3 className="text-xs sm:text-base font-black text-chobee-navy-900 font-display">
                 Chobee's Daily Care Reminder for Mayor Cia
               </h3>
               <span className="text-xs">🌸</span>
             </div>
-            <p className="text-xs text-chobee-navy-800/85 leading-relaxed max-w-2xl font-medium">
+            <p className="text-[11px] sm:text-xs text-chobee-navy-800/85 leading-relaxed max-w-2xl font-medium">
               "Take a deep breath (<span className="text-chobee-pink-600 font-bold">Inhale... Exhale... 🧸🩵</span>) and don't skip your meals today! Kahit busy sa review at class rep duties, your health and peace of mind come first. Super proud si Baby Bear sa sipag mo mag-aral palagi!"
             </p>
           </div>
@@ -623,7 +623,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         <button
           onClick={onOpenMonthsary}
-          className="relative z-10 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/70 hover:bg-white text-chobee-pink-600 font-extrabold text-xs border border-white/80 shadow-soft-pink active:scale-95 transition-all whitespace-nowrap backdrop-blur-md"
+          className="w-full sm:w-auto text-center justify-center relative z-10 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/70 hover:bg-white text-chobee-pink-600 font-extrabold text-xs border border-white/80 shadow-soft-pink active:scale-95 transition-all whitespace-nowrap backdrop-blur-md"
         >
           <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" />
           <span>Open Secret Note 🎀</span>
@@ -632,23 +632,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Due for Review Spaced Repetition Alert Banner */}
       {totalDueCount > 0 && (
-        <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-blue-500/10 border border-pink-300/80 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+        <div className="rounded-2xl p-3.5 sm:p-5 bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-blue-500/10 border border-pink-300/80 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-chobee-pink-500 to-chobee-blue-500 text-white flex items-center justify-center font-bold shadow-xs">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-chobee-pink-500 to-chobee-blue-500 text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-chobee-navy-900">
+              <h4 className="text-xs sm:text-sm font-bold text-chobee-navy-900">
                 Spaced Repetition: {totalDueCount} Cards Due for Review Today!
               </h4>
-              <p className="text-xs text-chobee-navy-700/70">
+              <p className="text-[11px] sm:text-xs text-chobee-navy-700/70">
                 Keep your memory sharp by completing today's quick review queue.
               </p>
             </div>
           </div>
           <button
             onClick={() => studySets[0] && onSelectSet(studySets[0], 'flashcards')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white text-xs font-bold shadow-xs transition-all active:scale-95 whitespace-nowrap"
+            className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2 rounded-xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white text-xs font-bold shadow-xs transition-all active:scale-95 whitespace-nowrap"
           >
             <span>Review {totalDueCount} Due Cards</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -678,7 +678,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Study Sets Grid - Authentic iOS App Library Squircles (High Contrast & Tactile) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-7">
           {filteredStudySets.map((set) => {
             const masteredCount = set.flashcards.filter((c) => c.state === 'mastered').length;
             const progressPct = set.flashcards.length > 0 
@@ -686,9 +686,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               : 0;
 
             return (
-              <div key={set.id} className="flex flex-col items-center group">
-                {/* iOS App Library Translucent Squircle Folder */}
-                <div className="w-full aspect-[4/3] sm:aspect-square bg-white/50 hover:bg-white/65 backdrop-blur-2xl p-3.5 sm:p-4 rounded-[34px] border-2 border-white/80 shadow-md hover:shadow-xl hover:border-pink-200/90 transition-all duration-300 flex flex-col justify-between">
+              <div key={set.id} className="flex flex-col items-center group w-full">
+                {/* iOS App Library Translucent Squircle Folder - Responsive Min-Height so 2x2 never cuts off */}
+                <div className="w-full min-h-[300px] sm:min-h-0 sm:aspect-square bg-white/50 hover:bg-white/65 backdrop-blur-2xl p-3.5 sm:p-4 rounded-[30px] sm:rounded-[34px] border-2 border-white/80 shadow-md hover:shadow-xl hover:border-pink-200/90 transition-all duration-300 flex flex-col justify-between">
                   
                   {/* Folder Header */}
                   <div className="flex items-center justify-between px-1 mb-1">
@@ -708,57 +708,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
 
                   {/* 2x2 App Tiles Grid */}
-                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5 flex-1">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5 flex-1 my-1">
                     {/* Tile 1: Flashcards */}
                     <button
                       onClick={() => onSelectSet(set, 'flashcards')}
-                      className="rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-1 group/tile relative overflow-hidden transition-all active:scale-95"
+                      className="rounded-[18px] sm:rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-0.5 sm:gap-1 group/tile relative overflow-hidden transition-all active:scale-95 min-h-[74px] sm:min-h-0"
                       title="Open Flashcards"
                     >
-                      <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-pink-400 to-rose-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform">
-                        <Layers className="w-4 h-4" />
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-pink-400 to-rose-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform flex-shrink-0">
+                        <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
-                      <span className="text-xs font-black text-chobee-navy-950 leading-tight">Flashcards</span>
-                      <span className="text-[10px] font-bold text-chobee-pink-600">{set.flashcards.length} Cards</span>
+                      <span className="text-[11px] sm:text-xs font-black text-chobee-navy-950 leading-tight line-clamp-1">Flashcards</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-chobee-pink-600 truncate">{set.flashcards.length} Cards</span>
                     </button>
 
                     {/* Tile 2: Quiz */}
                     <button
                       onClick={() => onSelectSet(set, 'quiz')}
-                      className="rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-1 group/tile relative overflow-hidden transition-all active:scale-95"
+                      className="rounded-[18px] sm:rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-0.5 sm:gap-1 group/tile relative overflow-hidden transition-all active:scale-95 min-h-[74px] sm:min-h-0"
                       title="Take Quiz"
                     >
-                      <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-blue-400 to-indigo-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform">
-                        <CheckCircle2 className="w-4 h-4" />
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-blue-400 to-indigo-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform flex-shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
-                      <span className="text-xs font-black text-chobee-navy-950 leading-tight">Quiz Exam</span>
-                      <span className="text-[10px] font-bold text-chobee-blue-600">{set.quizQuestions.length} Qs</span>
+                      <span className="text-[11px] sm:text-xs font-black text-chobee-navy-950 leading-tight line-clamp-1">Quiz Exam</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-chobee-blue-600 truncate">{set.quizQuestions.length} Qs</span>
                     </button>
 
                     {/* Tile 3: Summary / Guide */}
                     <button
                       onClick={() => onSelectSet(set, 'summary')}
-                      className="rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-1 group/tile relative overflow-hidden transition-all active:scale-95"
+                      className="rounded-[18px] sm:rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-0.5 sm:gap-1 group/tile relative overflow-hidden transition-all active:scale-95 min-h-[74px] sm:min-h-0"
                       title="Read Study Guide"
                     >
-                      <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-purple-400 to-fuchsia-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform">
-                        <FileText className="w-4 h-4" />
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-purple-400 to-fuchsia-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform flex-shrink-0">
+                        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
-                      <span className="text-xs font-black text-chobee-navy-950 leading-tight">Mind Guide</span>
-                      <span className="text-[10px] font-bold text-purple-600">{set.fileType || 'Notes'}</span>
+                      <span className="text-[11px] sm:text-xs font-black text-chobee-navy-950 leading-tight line-clamp-1">Mind Guide</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-purple-600 truncate">{set.fileType || 'Notes'}</span>
                     </button>
 
                     {/* Tile 4: Quick Review & Mastery Ace */}
                     <button
                       onClick={() => onSelectSet(set, 'flashcards')}
-                      className="rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-1 group/tile relative overflow-hidden transition-all active:scale-95"
+                      className="rounded-[18px] sm:rounded-[20px] bg-white/85 hover:bg-white border border-white/90 shadow-xs p-2 sm:p-2.5 flex flex-col items-center justify-center text-center gap-0.5 sm:gap-1 group/tile relative overflow-hidden transition-all active:scale-95 min-h-[74px] sm:min-h-0"
                       title="Quick Ace Review"
                     >
-                      <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform">
-                        <Play className="w-4 h-4 fill-white" />
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center text-white shadow-xs group-hover/tile:scale-110 transition-transform flex-shrink-0">
+                        <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white" />
                       </div>
-                      <span className="text-xs font-black text-chobee-navy-950 leading-tight">Quick Ace</span>
-                      <span className="text-[10px] font-bold text-emerald-600">{progressPct}% Done</span>
+                      <span className="text-[11px] sm:text-xs font-black text-chobee-navy-950 leading-tight line-clamp-1">Quick Ace</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 truncate">{progressPct}% Done</span>
                     </button>
                   </div>
 

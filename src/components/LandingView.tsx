@@ -29,7 +29,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
   const { openAuthModal, referralQueryCode } = useAuth();
 
   return (
-    <div className="space-y-10 py-6 max-w-5xl mx-auto animate-fadeIn">
+    <div className="space-y-10 py-6 max-w-5xl mx-auto px-3.5 sm:px-6 lg:px-8 animate-fadeIn">
       {/* Referral Banner if visited via referral link */}
       {referralQueryCode && (
         <div className="bg-gradient-to-r from-pink-100/90 via-purple-100/80 to-blue-100/90 border border-pink-300/80 rounded-3xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-sm animate-bounceSubtle">

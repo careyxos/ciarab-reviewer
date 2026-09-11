@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Sparkles, 
-  Award, 
-  BookOpen, 
   PlusCircle, 
   Volume2, 
   VolumeX, 
   Headphones, 
-  Heart,
   LayoutDashboard,
   BrainCircuit,
   CheckCircle2,
@@ -16,15 +12,12 @@ import {
   ChevronDown,
   User as UserIcon,
   Zap,
-  ShieldCheck,
   LogOut,
-  Crown,
-  History
+  Crown
 } from 'lucide-react';
 import { UserStats } from '../types/study';
-import { lofiPlayer } from '../services/audioService';
+import { lofiPlayer, playHapticTap } from '../services/audioService';
 import { useAuth } from '../context/AuthContext';
-import { playHapticTap } from '../services/audioService';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin';
@@ -95,14 +88,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-pink-100/70 shadow-sm transition-all">
       {/* Top Banner with Dynamic Greeting */}
-      <div className="bg-gradient-to-r from-chobee-pink-100/90 via-pink-50 to-chobee-blue-100/90 py-1.5 px-4 sm:px-8 border-b border-pink-200/50">
+      <div className="bg-gradient-to-r from-chobee-pink-100/90 via-pink-50 to-chobee-blue-100/90 py-1.5 px-3 sm:px-8 border-b border-pink-200/50">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-xs sm:text-sm font-medium text-chobee-navy-800">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-chobee-pink-400 animate-ping" />
-            <span className="font-semibold text-chobee-pink-600 font-display tracking-wide">{greeting}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-2 w-2 rounded-full bg-chobee-pink-400 animate-ping flex-shrink-0" />
+            <span className="font-semibold text-chobee-pink-600 font-display tracking-wide truncate">{greeting}</span>
             <span className="hidden md:inline text-chobee-navy-700/60">• Rereviewhin ka ng Baby Bear mo 🧸🩵</span>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {/* Ambient Study Beats Button */}
             <button
               onClick={toggleLofi}
@@ -130,25 +123,25 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main App Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           {/* Logo & Brand */}
           <div 
             onClick={() => setActiveTab('dashboard')} 
-            className="flex items-center gap-3 cursor-pointer group select-none"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group select-none min-w-0"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-chobee-pink-400 via-pink-300 to-chobee-blue-300 p-0.5 shadow-soft-pink group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-              <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-xl">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-chobee-pink-400 via-pink-300 to-chobee-blue-300 p-0.5 shadow-soft-pink group-hover:scale-105 transition-transform duration-300 flex items-center justify-center flex-shrink-0">
+              <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-lg sm:text-xl">
                 🧸
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-chobee-pink-500 via-purple-600 to-chobee-blue-500 bg-clip-text text-transparent">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-display font-extrabold text-base sm:text-xl tracking-tight bg-gradient-to-r from-chobee-pink-500 via-purple-600 to-chobee-blue-500 bg-clip-text text-transparent truncate">
                   Reviewhin na kita
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-chobee-pink-100 text-chobee-pink-600 font-bold border border-pink-200">
-                  Chobee AI
+                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-chobee-pink-100 text-chobee-pink-600 font-bold border border-pink-200 flex-shrink-0">
+                  Chobee
                 </span>
               </div>
               <p className="text-[11px] text-chobee-navy-700/70 hidden sm:block">
@@ -223,7 +216,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Right Action Bar */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
             {isLoggedIn ? (
               <>
                 {/* Daily AI Token HUD Pill */}
@@ -232,20 +225,21 @@ export const Header: React.FC<HeaderProps> = ({
                     if (soundEnabled) playHapticTap();
                     setActiveTab('usage');
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200/80 shadow-xs transition-all text-left active:scale-95 group"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200/80 shadow-xs transition-all text-left active:scale-95 group"
                   title={`Resets in ${dailyUsage.resetCountdown}`}
                 >
-                  <div className="w-6 h-6 rounded-xl bg-pink-100 flex items-center justify-center text-xs">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-xl bg-pink-100 flex items-center justify-center text-xs flex-shrink-0">
                     🧠
                   </div>
-                  <div className="hidden sm:block">
-                    <div className="flex items-center gap-1 text-xs font-black text-chobee-navy-900 leading-none">
-                      <span>{user?.role === 'admin' ? 'Unlimited' : `${dailyUsage.remaining}/${dailyUsage.allocated}`}</span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-xs font-black text-chobee-navy-900 leading-none">
+                      <span>{user?.role === 'admin' ? 'Unlimited' : `${dailyUsage.remaining}`}</span>
+                      <span className="hidden sm:inline font-normal text-slate-400">/{dailyUsage.allocated}</span>
                       {dailyUsage.remaining <= 20 && user?.role !== 'admin' && (
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                       )}
                     </div>
-                    <span className="text-[9px] font-bold text-slate-400 font-mono">
+                    <span className="text-[9px] font-bold text-slate-400 font-mono hidden sm:inline">
                       {dailyUsage.resetCountdown}
                     </span>
                   </div>
@@ -254,7 +248,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Primary Action Button: + Create Study Set */}
                 <button
                   onClick={onOpenUpload}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-semibold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-semibold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95 flex-shrink-0"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Create Set</span>

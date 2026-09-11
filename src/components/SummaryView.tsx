@@ -58,7 +58,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
           </h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => onSwitchMode('flashcards')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-chobee-pink-600 font-bold text-xs border border-pink-200 transition-colors"

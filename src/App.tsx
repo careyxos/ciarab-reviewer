@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fireLightCelebration } from './services/fxService';
 import { 
-  Heart, 
-  Sparkles, 
-  BookOpen, 
-  Layers, 
   CheckCircle2, 
-  Award, 
   LayoutDashboard, 
   BrainCircuit, 
   Library, 
-  FileText,
-  Move
+  FileText
 } from 'lucide-react';
 import { StudySet, UserStats, Achievement } from './types/study';
 import { 
@@ -531,6 +525,82 @@ export function App() {
         )}
       </main>
 
+      {/* MOBILE iOS GLASS BOTTOM NAVIGATION DOCK (Instant phone tab navigation) */}
+      {isLoggedIn && (
+        <nav className="lg:hidden fixed bottom-3 inset-x-3 z-40 ipados-dock rounded-3xl p-1.5 flex items-center justify-around shadow-2xl border border-white/90 backdrop-blur-2xl">
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              setActiveTab('dashboard');
+            }}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+              activeTab === 'dashboard'
+                ? 'bg-chobee-pink-500 text-white shadow-soft-pink'
+                : 'text-chobee-navy-700 hover:text-chobee-pink-600'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Home</span>
+          </button>
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              setActiveTab('library');
+            }}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+              activeTab === 'library'
+                ? 'bg-chobee-blue-500 text-white shadow-soft-blue'
+                : 'text-chobee-navy-700 hover:text-chobee-blue-600'
+            }`}
+          >
+            <Library className="w-4 h-4" />
+            <span>Materials</span>
+          </button>
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              setActiveTab('flashcards');
+            }}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+              activeTab === 'flashcards'
+                ? 'bg-purple-500 text-white shadow-md'
+                : 'text-chobee-navy-700 hover:text-purple-600'
+            }`}
+          >
+            <BrainCircuit className="w-4 h-4" />
+            <span>Cards</span>
+          </button>
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              setActiveTab('quiz');
+            }}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+              activeTab === 'quiz'
+                ? 'bg-chobee-pink-500 text-white shadow-soft-pink'
+                : 'text-chobee-navy-700 hover:text-chobee-pink-600'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Quiz</span>
+          </button>
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              setActiveTab('summary');
+            }}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+              activeTab === 'summary'
+                ? 'bg-chobee-blue-500 text-white shadow-soft-blue'
+                : 'text-chobee-navy-700 hover:text-chobee-blue-600'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Guide</span>
+          </button>
+        </nav>
+      )}
+
       {/* DRAGGABLE & HIGHLY RESPONSIVE MY MELODY FLOATING WIDGET ("A secret for Cia 🎀") */}
       <div
         onPointerDown={handlePointerDown}
@@ -540,8 +610,8 @@ export function App() {
           position: 'fixed',
           left: customPos ? `${customPos.x}px` : undefined,
           top: customPos ? `${customPos.y}px` : undefined,
-          right: !customPos ? '24px' : undefined,
-          bottom: !customPos ? '80px' : undefined,
+          right: !customPos ? '16px' : undefined,
+          bottom: !customPos ? (isLoggedIn ? '74px' : '24px') : undefined,
           touchAction: 'none',
           userSelect: 'none',
           zIndex: 9999,
