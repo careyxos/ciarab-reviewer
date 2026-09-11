@@ -67,13 +67,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const initAuth = async () => {
       const token = getStoredToken();
-      if (!token) {
-        // Check local mock user if any
-        const mock = getLocalMockUser();
-        if (mock) {
-          setUser(mock.user);
-          setDailyUsage(mock.usage);
-        }
+      if (!token || token === 'mock-session-token' || !token.includes('.')) {
+        clearStoredAuth();
+        localStorage.removeItem('chobee_local_mock_user');
         setIsLoading(false);
         return;
       }
@@ -83,14 +79,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(data.user);
         if (data.usage) setDailyUsage(data.usage);
       } catch (err) {
-        console.warn('Could not verify server session, checking local cache:', err);
-        const mock = getLocalMockUser();
-        if (mock) {
-          setUser(mock.user);
-          setDailyUsage(mock.usage);
-        } else {
-          clearStoredAuth();
-        }
+        console.warn('Could not verify server session:', err);
+        clearStoredAuth();
+        localStorage.removeItem('chobee_local_mock_user');
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
