@@ -141,6 +141,9 @@ export const handler: Handler = async (event: HandlerEvent) => {
       }
       if (role && ['free', 'premium', 'admin'].includes(role)) {
         updates.role = role;
+        if (typeof dailyTokenLimit !== 'number') {
+          updates.daily_token_limit = role === 'admin' ? 999999 : role === 'premium' ? 500 : 100;
+        }
       }
 
       const updated = await updateUser(targetUserId, updates);
@@ -148,12 +151,13 @@ export const handler: Handler = async (event: HandlerEvent) => {
         return { statusCode: 404, headers: JSON_HEADERS, body: JSON.stringify({ error: 'User not found' }) };
       }
 
-      // Also adjust today's usage remaining if limit increased
-      if (typeof dailyTokenLimit === 'number') {
+      // Also adjust today's usage remaining if limit increased or role changed
+      const effectiveLimit = updates.daily_token_limit ?? dailyTokenLimit;
+      if (typeof effectiveLimit === 'number') {
         const today = getTodayString();
         const usage = await getDailyUsage(targetUserId, today);
-        usage.tokens_allocated = dailyTokenLimit;
-        usage.tokens_remaining = Math.max(0, dailyTokenLimit - usage.tokens_used);
+        usage.tokens_allocated = effectiveLimit;
+        usage.tokens_remaining = Math.max(0, effectiveLimit - usage.tokens_used);
         const { saveDailyUsage } = await import('./lib/db');
         await saveDailyUsage(usage);
       }
