@@ -47,6 +47,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   
   // Customization settings
   const [cardCount, setCardCount] = useState<number>(10);
+  const [quizCount, setQuizCount] = useState<number>(10);
   const [questionTypes, setQuestionTypes] = useState<('multiple_choice' | 'true_false' | 'identification')[]>([
     'multiple_choice',
     'true_false',
@@ -204,6 +205,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         category,
         themeColor,
         cardCount,
+        quizCount,
         questionTypes,
         difficulty,
         language,
@@ -487,12 +489,12 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 </div>
               </div>
 
-              {/* Card Count & Language */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              {/* Card Count & Quiz Count */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500">Card Count:</span>
-                  <div className="flex gap-2">
-                    {[5, 10, 20].map((num) => (
+                  <span className="text-[11px] font-bold text-slate-500">Flashcard Count:</span>
+                  <div className="flex gap-1.5">
+                    {[5, 10, 30, 50].map((num) => (
                       <button
                         key={num}
                         type="button"
@@ -502,8 +504,8 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                         }}
                         className={`flex-1 py-1 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
                           cardCount === num
-                            ? 'bg-chobee-navy-900 text-white border-chobee-navy-900'
-                            : 'bg-white text-slate-600 border-slate-200'
+                            ? 'bg-chobee-navy-900 text-white border-chobee-navy-900 shadow-xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-pink-200'
                         }`}
                       >
                         {num}
@@ -513,17 +515,44 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500">Language Tone:</span>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value as any)}
-                    className="w-full px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-800"
-                  >
-                    <option value="Taglish">Taglish (Chobee Tone 🧸)</option>
-                    <option value="English">English (Formal)</option>
-                    <option value="Tagalog">Tagalog (Formal)</option>
-                  </select>
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center justify-between">
+                    <span>Quiz Count:</span>
+                    <span className="text-[10px] text-chobee-pink-600 font-extrabold">5 to 50 max</span>
+                  </span>
+                  <div className="flex gap-1.5">
+                    {[5, 10, 30, 50].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => {
+                          if (soundEnabled) playHapticTap();
+                          setQuizCount(num);
+                        }}
+                        className={`flex-1 py-1 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
+                          quizCount === num
+                            ? 'bg-gradient-to-r from-chobee-pink-500 to-rose-500 text-white border-pink-500 shadow-soft-pink'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-pink-200'
+                        }`}
+                      >
+                        {num === 50 ? '50 Max' : num}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              </div>
+
+              {/* Language Tone */}
+              <div className="space-y-1 pt-1">
+                <span className="text-[11px] font-bold text-slate-500">Language Tone:</span>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-800"
+                >
+                  <option value="Taglish">Taglish (Chobee Tone 🧸)</option>
+                  <option value="English">English (Formal)</option>
+                  <option value="Tagalog">Tagalog (Formal)</option>
+                </select>
               </div>
             </div>
 

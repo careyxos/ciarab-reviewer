@@ -5,6 +5,7 @@ export interface ServerGenerationOptions {
   category: 'Tourism' | 'Accounting' | 'Events' | 'General';
   themeColor?: 'pink' | 'blue' | 'lavender';
   cardCount: number;
+  quizCount?: number;
   questionTypes: ('multiple_choice' | 'true_false' | 'identification')[];
   difficulty: 'Easy' | 'Medium' | 'Hard' | 'Mixed';
   language: 'English' | 'Tagalog' | 'Taglish';
@@ -59,7 +60,7 @@ Analyze the following study material and return a STRICT valid JSON object with 
   }
 }
 
-Generate at least ${Math.min(options.cardCount || 10, 15)} flashcards and 5 quiz questions.
+Generate at least ${Math.min(options.cardCount || 10, 30)} flashcards and ${Math.min(options.quizCount || 10, 50)} quiz questions.
 Difficulty: ${options.difficulty || 'Mixed'}. Language: ${options.language || 'Taglish'}. Tone: Encouraging, sweet, engaging study coach.
 Material Content:
 ${sanitizedContent}

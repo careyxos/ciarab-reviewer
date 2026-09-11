@@ -83,6 +83,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
       category: options?.category || 'General',
       themeColor: options?.themeColor || 'pink',
       cardCount: options?.cardCount || 10,
+      quizCount: options?.quizCount || 10,
       questionTypes: options?.questionTypes || ['multiple_choice', 'true_false'],
       difficulty: options?.difficulty || 'Mixed',
       language: options?.language || 'Taglish',

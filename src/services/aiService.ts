@@ -5,6 +5,7 @@ export interface GenerationOptions {
   category: 'Tourism' | 'Accounting' | 'Events' | 'General';
   themeColor: 'pink' | 'blue' | 'lavender';
   cardCount: number;
+  quizCount?: number;
   questionTypes: ('multiple_choice' | 'true_false' | 'identification')[];
   difficulty: 'Easy' | 'Medium' | 'Hard' | 'Mixed';
   language: 'English' | 'Tagalog' | 'Taglish';
@@ -278,7 +279,8 @@ function generateLocalMaterial(content: string, options: GenerationOptions) {
 
   // Generate Quiz Questions
   const quizQuestions: QuizQuestion[] = [];
-  const questionCount = Math.max(4, Math.min(flashcards.length, 12));
+  const targetQuizCount = options.quizCount || 10;
+  const questionCount = Math.max(4, Math.min(targetQuizCount, 50));
 
   for (let i = 0; i < questionCount; i++) {
     const card = flashcards[i % flashcards.length];
@@ -444,7 +446,7 @@ async function callGeminiAPI(content: string, options: GenerationOptions) {
     }
   }
 
-  Generate at least ${Math.min(options.cardCount, 15)} flashcards and 5 quiz questions.
+  Generate at least ${Math.min(options.cardCount, 30)} flashcards and ${Math.min(options.quizCount || 10, 50)} quiz questions.
   Difficulty: ${options.difficulty}. Tone: Professional study platform with gentle loving encouragement.
   Material Content:
   ${content.slice(0, 15000)}

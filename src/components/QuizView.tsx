@@ -27,6 +27,7 @@ import {
   playXpSound
 } from '../services/audioService';
 import { fireLightCelebration, fireMiniBurst, fireComboBlast } from '../services/fxService';
+import { prepareQuizPool } from '../services/quizService';
 
 interface QuizViewProps {
   studySet: StudySet;
@@ -41,7 +42,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
   onCompleteQuiz,
   soundEnabled,
 }) => {
-  const [questions, setQuestions] = useState<QuizQuestion[]>(studySet.quizQuestions || []);
+  const [quizSize, setQuizSize] = useState<number>(() => {
+    const rawLen = studySet.quizQuestions?.length || 10;
+    if (rawLen <= 5) return 5;
+    if (rawLen <= 10) return 10;
+    if (rawLen <= 30) return 30;
+    return 50;
+  });
+
+  const [questions, setQuestions] = useState<QuizQuestion[]>(() => 
+    prepareQuizPool(studySet, 10)
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [typedAnswer, setTypedAnswer] = useState('');
@@ -59,8 +70,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
 
   useEffect(() => {
-    const list = studySet.quizQuestions || [];
-    setQuestions(list);
+    const prepared = prepareQuizPool(studySet, quizSize);
+    setQuestions(prepared);
     setCurrentIndex(0);
     setSelectedOption(null);
     setTypedAnswer('');
@@ -69,7 +80,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setUserAnswers([]);
     setIsQuizCompleted(false);
     setFloatingXp(null);
-  }, [studySet]);
+  }, [studySet, quizSize]);
 
   const currentQ = questions[currentIndex];
 
@@ -213,9 +224,29 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setFloatingXp(null);
   };
 
-  const handleRestartQuiz = () => {
+  const handleSetQuizSize = (newSize: number) => {
     if (soundEnabled) playHapticTap();
-    setQuestions(studySet.quizQuestions || []);
+    setQuizSize(newSize);
+    const prepared = prepareQuizPool(studySet, newSize);
+    setQuestions(prepared);
+    setCurrentIndex(0);
+    setSelectedOption(null);
+    setTypedAnswer('');
+    setIsAnswerSubmitted(false);
+    setUserAnswers([]);
+    setIsQuizCompleted(false);
+    setStreak(0);
+    setFloatingXp(null);
+  };
+
+  const handleRestartQuiz = (targetSize?: number) => {
+    if (soundEnabled) playHapticTap();
+    const effectiveSize = targetSize || quizSize;
+    if (targetSize && targetSize !== quizSize) {
+      setQuizSize(targetSize);
+    }
+    const prepared = prepareQuizPool(studySet, effectiveSize);
+    setQuestions(prepared);
     setCurrentIndex(0);
     setSelectedOption(null);
     setTypedAnswer('');
@@ -278,6 +309,43 @@ export const QuizView: React.FC<QuizViewProps> = ({
             </span>
           </div>
         )}
+      </div>
+
+      {/* Quiz Size / Length Selector Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-pink-200/80 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-black text-chobee-navy-900 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-chobee-pink-500" />
+            <span>Quiz Length:</span>
+          </span>
+          <span className="text-[11px] font-semibold text-slate-400 hidden sm:inline">
+            (Ilang quizzes ang sasagutan mo?)
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {[5, 10, 30, 50].map((count) => {
+            const isSelected = quizSize === count;
+            return (
+              <button
+                key={count}
+                type="button"
+                onClick={() => handleSetQuizSize(count)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1 ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-chobee-pink-500 to-rose-500 text-white shadow-soft-pink ring-2 ring-pink-300/70 scale-105'
+                    : 'bg-slate-50 hover:bg-pink-50/80 text-chobee-navy-800 border border-slate-200 hover:border-pink-300'
+                }`}
+              >
+                <span>{count === 50 ? '50 Max' : `${count} Qs`}</span>
+                {count === 5 && <span className="text-[10px]">⚡</span>}
+                {count === 10 && <span className="text-[10px]">🎯</span>}
+                {count === 30 && <span className="text-[10px]">📚</span>}
+                {count === 50 && <span className="text-[10px]">🔥</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {!isQuizCompleted ? (
@@ -521,32 +589,48 @@ export const QuizView: React.FC<QuizViewProps> = ({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
-            <button
-              onClick={handleRestartQuiz}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-chobee-navy-800 shadow-xs active:scale-95"
-            >
-              <RotateCw className="w-3.5 h-3.5 text-chobee-pink-500" />
-              <span>Retake All ({studySet.quizQuestions.length})</span>
-            </button>
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-bold text-slate-500">Practice another round:</span>
+              <span className="text-xs font-black text-chobee-pink-600">Choose Quiz Length 🎀</span>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[5, 10, 30, 50].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => handleRestartQuiz(num)}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                    quizSize === num
+                      ? 'bg-chobee-navy-900 text-white border-chobee-navy-900 shadow-xs'
+                      : 'bg-white hover:bg-pink-50 text-chobee-navy-800 border-slate-200'
+                  }`}
+                >
+                  <RotateCw className="w-3 h-3 text-chobee-pink-500" />
+                  <span>{num === 50 ? 'Retake 50 Max' : `Retake ${num} Qs`}</span>
+                </button>
+              ))}
+            </div>
 
-            {incorrectAnswers.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              {incorrectAnswers.length > 0 && (
+                <button
+                  onClick={handleReviewMistakes}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold text-rose-700 shadow-xs active:scale-95"
+                >
+                  <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Review Mistakes ({incorrectAnswers.length})</span>
+                </button>
+              )}
+
               <button
-                onClick={handleReviewMistakes}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold text-rose-700 shadow-xs active:scale-95"
+                onClick={() => onSwitchMode('flashcards')}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 text-white text-xs font-bold shadow-soft-pink active:scale-95 ml-auto"
               >
-                <XCircle className="w-3.5 h-3.5 text-rose-500" />
-                <span>Review Mistakes ({incorrectAnswers.length})</span>
+                <BrainCircuit className="w-3.5 h-3.5" />
+                <span>Back to Flashcards</span>
               </button>
-            )}
-
-            <button
-              onClick={() => onSwitchMode('flashcards')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 text-white text-xs font-bold shadow-soft-pink active:scale-95"
-            >
-              <BrainCircuit className="w-3.5 h-3.5" />
-              <span>Back to Flashcards</span>
-            </button>
+            </div>
           </div>
         </div>
       )}
