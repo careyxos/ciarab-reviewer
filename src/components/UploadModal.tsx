@@ -12,7 +12,8 @@ import {
   HelpCircle,
   File,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Key
 } from 'lucide-react';
 import { StudySet } from '../types/study';
 import { generateStudyMaterial, GenerationOptions } from '../services/aiService';
@@ -49,6 +50,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   ]);
   const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Mixed'>('Mixed');
   const [language, setLanguage] = useState<'English' | 'Tagalog' | 'Taglish'>('Taglish');
+
+  // Optional Gemini API Key
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') : '') || '';
+  });
+  const [showApiSettings, setShowApiSettings] = useState(false);
 
   // Generation loading states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -187,6 +194,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
     }, 750);
 
     try {
+      const activeApiKey = apiKey.trim() || import.meta.env.VITE_GEMINI_API_KEY || undefined;
       const options: GenerationOptions = {
         title: title.trim() || (activeTab === 'upload' && file ? file.name.replace(/\.[^/.]+$/, '') : 'Lecture Notes Reviewer'),
         category,
@@ -195,6 +203,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         questionTypes,
         difficulty,
         language,
+        apiKey: activeApiKey,
       };
 
       const generated = await generateStudyMaterial(rawContent, options);
@@ -503,6 +512,78 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                   </select>
                 </div>
               </div>
+            </div>
+
+            {/* Optional AI Engine Configuration */}
+            <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${apiKey || import.meta.env.VITE_GEMINI_API_KEY ? 'bg-emerald-500 animate-pulse' : 'bg-chobee-pink-400'}`} />
+                  <span className="font-bold text-chobee-navy-800">
+                    AI Engine: {apiKey || import.meta.env.VITE_GEMINI_API_KEY ? '✨ Google Gemini AI' : '⚡ Built-in Smart Parser'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowApiSettings(!showApiSettings)}
+                  className="text-chobee-pink-600 hover:text-chobee-pink-700 font-bold text-[11px] flex items-center gap-1 underline"
+                >
+                  <Key className="w-3 h-3" />
+                  {showApiSettings ? 'Hide Key' : 'Gemini Key (Optional)'}
+                </button>
+              </div>
+
+              {showApiSettings && (
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200/80 space-y-1.5 animate-fadeIn">
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Lagyan ng Google Gemini API key para mas human-like at sobrang talino ng Taglish explanations ni Mayor Cia. 
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-chobee-pink-600 font-bold hover:underline ml-1"
+                    >
+                      Kumuha ng libreng key dito (100% Free) &rarr;
+                    </a>
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Paste AI Studio Key: AIzaSy..."
+                      value={apiKey}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setApiKey(val);
+                        if (typeof window !== 'undefined') {
+                          if (val.trim()) {
+                            localStorage.setItem('chobee_gemini_api_key', val.trim());
+                          } else {
+                            localStorage.removeItem('chobee_gemini_api_key');
+                          }
+                        }
+                      }}
+                      className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-chobee-navy-900 focus:outline-none focus:border-chobee-pink-400"
+                    />
+                    {apiKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setApiKey('');
+                          if (typeof window !== 'undefined') {
+                            localStorage.removeItem('chobee_gemini_api_key');
+                          }
+                        }}
+                        className="px-2.5 py-1 text-[11px] text-red-500 hover:bg-red-50 rounded-lg font-bold border border-red-200"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    💡 Auto-saved ito sa browser mo. Kung wala kang ilagay, gagana pa rin ang built-in smart parser nang 100% offline!
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Generate Button */}
