@@ -1,25 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, 
-  ArrowRight, 
   RotateCw, 
   Shuffle, 
   Star, 
   Volume2, 
-  HelpCircle, 
   Sparkles, 
   CheckCircle2, 
   FileText, 
-  Keyboard, 
   Share2, 
   X, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  HelpCircle,
+  Keyboard
 } from 'lucide-react';
-import { StudySet, Flashcard, CardRating } from '../types/study';
-import { calculateNextReview } from '../services/spacedRepetition';
-import { playFlipSound, playCardSwoosh, playHapticTap, playBubblePop, playXpSound, playStreakSound, speakText, stopSpeaking } from '../services/audioService';
-import { fireMiniBurst } from '../services/fxService';
+import { StudySet, Flashcard } from '../types/study';
+import { 
+  playFlipSound, 
+  playCardSwoosh, 
+  playHapticTap, 
+  playCelebrationSound, 
+  speakText, 
+  stopSpeaking 
+} from '../services/audioService';
+import { fireLightCelebration } from '../services/fxService';
 import { sanitizeCard } from '../services/storageService';
 
 interface FlashcardViewProps {
@@ -78,14 +83,36 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
   const handleNext = useCallback(() => {
     stopSpeaking();
     if (soundEnabled) playCardSwoosh();
+
+    // Mark card as reviewed and update repetitions
+    if (currentCard) {
+      const updatedCard = {
+        ...currentCard,
+        repetitions: (currentCard.repetitions || 0) + 1,
+        lastReviewed: new Date().toISOString(),
+      };
+      const newCards = [...cards];
+      newCards[currentIndex] = updatedCard;
+      setCards(newCards);
+
+      const updatedSet: StudySet = {
+        ...studySet,
+        flashcards: newCards,
+        lastStudied: new Date().toISOString(),
+      };
+      onUpdateSet(updatedSet);
+    }
+
     if (currentIndex < cards.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsFlipped(false);
       setShowHint(false);
     } else {
       setSessionCompleted(true);
+      if (soundEnabled) playCelebrationSound();
+      fireLightCelebration();
     }
-  }, [currentIndex, cards.length, soundEnabled]);
+  }, [currentIndex, cards, currentCard, soundEnabled, studySet, onUpdateSet]);
 
   const handlePrev = useCallback(() => {
     stopSpeaking();
@@ -98,44 +125,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     }
   }, [currentIndex, soundEnabled]);
 
-  const handleRating = useCallback((rating: CardRating) => {
-    if (!currentCard) return;
-
-    if (rating === 'easy') {
-      if (soundEnabled) playStreakSound(4);
-      fireMiniBurst(0.5, 0.45);
-      setFloatingXp({ id: Date.now(), text: '+25 XP Mastered! 🌟' });
-    } else if (rating === 'good') {
-      if (soundEnabled) playXpSound();
-      setFloatingXp({ id: Date.now(), text: '+15 XP Good! 👍' });
-    } else if (rating === 'hard') {
-      if (soundEnabled) playBubblePop();
-      setFloatingXp({ id: Date.now(), text: '+5 XP Hard! ⚡' });
-    } else {
-      if (soundEnabled) playHapticTap();
-      setFloatingXp({ id: Date.now(), text: 'Review Soon 🔄' });
-    }
-
-    const updatedCard = calculateNextReview(currentCard, rating);
-    if (updatedCard.state === 'mastered' && currentCard.state !== 'mastered') {
-      if (onCardMasteredReward) onCardMasteredReward();
-    }
-
-    const newCards = [...cards];
-    newCards[currentIndex] = updatedCard;
-    setCards(newCards);
-
-    const updatedSet: StudySet = {
-      ...studySet,
-      flashcards: newCards,
-      lastStudied: new Date().toISOString(),
-    };
-    onUpdateSet(updatedSet);
-
-    handleNext();
-  }, [currentCard, cards, currentIndex, studySet, onUpdateSet, onCardMasteredReward, handleNext, soundEnabled]);
-
-  // Keyboard navigation shortcuts
+  // Keyboard navigation shortcuts (Space = Flip, ArrowLeft = Prev, ArrowRight = Next)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (showAiModal) return;
@@ -148,24 +138,12 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
         handlePrev();
-      } else if (e.code === 'Digit1' || e.code === 'Numpad1') {
-        e.preventDefault();
-        handleRating('again');
-      } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
-        e.preventDefault();
-        handleRating('hard');
-      } else if (e.code === 'Digit3' || e.code === 'Numpad3') {
-        e.preventDefault();
-        handleRating('good');
-      } else if (e.code === 'Digit4' || e.code === 'Numpad4') {
-        e.preventDefault();
-        handleRating('easy');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFlip, handleNext, handlePrev, handleRating, showAiModal]);
+  }, [handleFlip, handleNext, handlePrev, showAiModal]);
 
   const handleShuffle = () => {
     stopSpeaking();
@@ -514,106 +492,39 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
         </div>
       )}
 
-      {/* Navigation & Gizmo Spaced Repetition Rating Controls */}
+      {/* Navigation Controls */}
       {!sessionCompleted && (
-        <div className="space-y-3 pt-2">
-          {isFlipped ? (
-            <div className="space-y-2 animate-pop-card-in">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold text-chobee-navy-700/75 flex items-center gap-1.5">
-                  <span>How well did you know this, Mayor Cia?</span>
-                  <span className="text-pink-500">🌸</span>
-                </span>
-                <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">
-                  Shortcuts: Press 1, 2, 3, or 4
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <button
-                  onClick={() => handleRating('again')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-rose-50/90 border-2 border-rose-200 hover:border-rose-400 text-rose-700 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
-                >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
-                    <span>🔄</span>
-                    <span>Again</span>
-                  </span>
-                  <span className="text-[10px] text-rose-500 font-bold bg-rose-100/70 px-2 py-0.5 rounded-full group-hover:bg-rose-200/80">
-                    [1] Review Soon
-                  </span>
-                </button>
+        <div className="pt-2">
+          <div className="flex items-center justify-between gap-2.5 sm:gap-3 max-w-xl mx-auto">
+            <button
+              onClick={handlePrev}
+              disabled={currentIndex === 0}
+              className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                currentIndex === 0
+                  ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
+                  : 'bg-white hover:bg-slate-50 text-chobee-navy-900 border border-slate-200 shadow-xs'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Previous</span>
+            </button>
 
-                <button
-                  onClick={() => handleRating('hard')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-amber-50/90 border-2 border-amber-200 hover:border-amber-400 text-amber-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
-                >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
-                    <span>⚡</span>
-                    <span>Hard</span>
-                  </span>
-                  <span className="text-[10px] text-amber-600 font-bold bg-amber-100/70 px-2 py-0.5 rounded-full group-hover:bg-amber-200/80">
-                    [2] +5 XP
-                  </span>
-                </button>
+            <button
+              onClick={handleFlip}
+              className="flex-1 max-w-xs px-4 sm:px-8 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-rose-500 hover:from-chobee-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-black shadow-soft-pink hover:shadow-glow-dual transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
+            >
+              <span>{isFlipped ? 'Flip to Front' : 'Show Answer'}</span>
+              <span className="text-[10px] opacity-80 font-normal bg-white/20 px-2 py-0.5 rounded-full hidden sm:inline">Space</span>
+            </button>
 
-                <button
-                  onClick={() => handleRating('good')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-sky-50/90 border-2 border-sky-200 hover:border-sky-400 text-sky-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
-                >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
-                    <span>👍</span>
-                    <span>Good</span>
-                  </span>
-                  <span className="text-[10px] text-sky-600 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full group-hover:bg-sky-200/80">
-                    [3] +15 XP
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => handleRating('easy')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-emerald-50/95 border-2 border-emerald-300 hover:border-emerald-400 text-emerald-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs ring-2 ring-emerald-200/60 group"
-                >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
-                    <span>🌟</span>
-                    <span>Easy</span>
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-full group-hover:bg-emerald-200">
-                    [4] +25 XP ✨
-                  </span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <button
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all active:scale-95 ${
-                  currentIndex === 0
-                    ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
-                    : 'bg-white hover:bg-slate-50 text-chobee-navy-900 border border-slate-200 shadow-xs'
-                }`}
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Previous</span>
-              </button>
-
-              <button
-                onClick={handleFlip}
-                className="px-8 py-3 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-rose-500 hover:from-chobee-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-black shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
-              >
-                <span>Show Answer</span>
-                <span className="text-[10px] opacity-80 font-normal bg-white/20 px-2 py-0.5 rounded-full">Space</span>
-              </button>
-
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-chobee-navy-900 hover:bg-chobee-navy-800 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
-              >
-                <span>{currentIndex === cards.length - 1 ? 'Finish Deck' : 'Next'}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+            <button
+              onClick={handleNext}
+              className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-chobee-navy-900 hover:bg-chobee-navy-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
+            >
+              <span>{currentIndex === cards.length - 1 ? 'Finish Deck' : 'Next'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
