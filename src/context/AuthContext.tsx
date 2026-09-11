@@ -3,6 +3,8 @@ import { UserProfile, DailyUsageState } from '../types/auth';
 import { 
   getStoredToken, 
   setStoredToken, 
+  getStoredUser,
+  setStoredUser,
   clearStoredAuth, 
   apiRequest, 
   getLocalMockUser, 
@@ -45,7 +47,7 @@ const ADMIN_WHITELIST = [
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => getStoredUser());
   const [dailyUsage, setDailyUsage] = useState<DailyUsageState>(DEFAULT_USAGE);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -67,22 +69,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const initAuth = async () => {
       const token = getStoredToken();
-      if (!token || token === 'mock-session-token' || !token.includes('.')) {
+      const cached = getStoredUser();
+
+      if (!token || !token.includes('.')) {
         clearStoredAuth();
-        localStorage.removeItem('chobee_local_mock_user');
+        setUser(null);
         setIsLoading(false);
         return;
+      }
+
+      if (cached) {
+        setUser(cached);
+        const limit = cached.role === 'admin' ? 999999 : (cached.dailyTokenLimit || 100);
+        setDailyUsage((prev) => ({
+          ...prev,
+          allocated: limit,
+          remaining: limit,
+        }));
       }
 
       try {
         const data = await apiRequest<{ user: UserProfile; usage: DailyUsageState }>('/api/auth/me');
         setUser(data.user);
-        if (data.usage) setDailyUsage(data.usage);
-      } catch (err) {
+        setStoredUser(data.user);
+        if (data.usage) {
+          const isUserAdmin = data.user.role === 'admin';
+          const allocated = isUserAdmin ? 999999 : Math.min(100, data.usage.allocated);
+          const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.usage.remaining);
+          setDailyUsage({
+            ...data.usage,
+            allocated,
+            remaining,
+          });
+        }
+      } catch (err: any) {
         console.warn('Could not verify server session:', err);
-        clearStoredAuth();
-        localStorage.removeItem('chobee_local_mock_user');
-        setUser(null);
+        // Only clear session if explicitly rejected as 401 Unauthorized
+        if (err?.status === 401) {
+          clearStoredAuth();
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -131,7 +157,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setStoredToken(data.token);
       setUser(data.user);
-      if (data.usage) setDailyUsage(data.usage);
+      setStoredUser(data.user);
+      if (data.usage) {
+        const isUserAdmin = data.user.role === 'admin';
+        const allocated = isUserAdmin ? 999999 : Math.min(100, data.usage.allocated);
+        const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.usage.remaining);
+        setDailyUsage({
+          ...data.usage,
+          allocated,
+          remaining,
+        });
+      }
       saveLocalMockUser({ user: data.user, usage: data.usage || DEFAULT_USAGE });
       closeAuthModal();
     } catch (err: any) {
@@ -178,7 +214,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setStoredToken(data.token);
       setUser(data.user);
-      if (data.usage) setDailyUsage(data.usage);
+      setStoredUser(data.user);
+      if (data.usage) {
+        const isUserAdmin = data.user.role === 'admin';
+        const allocated = isUserAdmin ? 999999 : Math.min(100, data.usage.allocated);
+        const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.usage.remaining);
+        setDailyUsage({
+          ...data.usage,
+          allocated,
+          remaining,
+        });
+      }
       saveLocalMockUser({ user: data.user, usage: data.usage || DEFAULT_USAGE });
       closeAuthModal();
     } catch (err: any) {
@@ -232,6 +278,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       body: JSON.stringify({ displayName }),
     });
     setUser(data.user);
+    setStoredUser(data.user);
     const mock = getLocalMockUser();
     if (mock) {
       saveLocalMockUser({ user: data.user, usage: dailyUsage });
@@ -242,11 +289,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const data = await apiRequest<{ today: { allocated: number; used: number; remaining: number } }>('/api/usage');
       if (data?.today) {
+        const isUserAdmin = user?.role === 'admin';
+        const allocated = isUserAdmin ? 999999 : Math.min(100, data.today.allocated);
+        const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.today.remaining);
         setDailyUsage((prev) => ({
           ...prev,
-          allocated: data.today.allocated,
+          allocated,
           used: data.today.used,
-          remaining: data.today.remaining,
+          remaining,
         }));
       }
     } catch (e) {}
@@ -254,10 +304,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUsageRemaining = (remaining: number, used?: number) => {
     setDailyUsage((prev) => {
+      const isUserAdmin = user?.role === 'admin';
+      const cap = isUserAdmin ? 999999 : 100;
+      const safeRemaining = Math.min(cap, Math.max(0, remaining));
       const updated = {
         ...prev,
-        remaining,
-        used: used !== undefined ? used : Math.max(0, prev.allocated - remaining),
+        allocated: Math.min(cap, prev.allocated),
+        remaining: safeRemaining,
+        used: used !== undefined ? used : Math.max(0, prev.allocated - safeRemaining),
       };
       if (user) {
         saveLocalMockUser({ user, usage: updated });

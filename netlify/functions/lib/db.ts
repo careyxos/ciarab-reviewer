@@ -113,19 +113,26 @@ loadDatabase();
 
 // --- USER OPERATIONS ---
 
+function sanitizeUser(user: User): User {
+  if (user.role === 'free' && user.daily_token_limit > 100) {
+    user.daily_token_limit = 100;
+  }
+  return user;
+}
+
 export async function getUserByEmail(email: string): Promise<User | null> {
   loadDatabase();
   await syncWithBlobStore();
   const normalized = email.toLowerCase().trim();
   const user = Object.values(memoryDb.users).find((u) => u.email.toLowerCase() === normalized);
-  return user ? { ...user } : null;
+  return user ? sanitizeUser({ ...user }) : null;
 }
 
 export async function getUserById(id: string): Promise<User | null> {
   loadDatabase();
   await syncWithBlobStore();
   const user = memoryDb.users[id];
-  return user ? { ...user } : null;
+  return user ? sanitizeUser({ ...user }) : null;
 }
 
 export async function getUserByReferralCode(code: string): Promise<User | null> {
@@ -133,15 +140,16 @@ export async function getUserByReferralCode(code: string): Promise<User | null> 
   await syncWithBlobStore();
   const normalized = code.toUpperCase().trim();
   const user = Object.values(memoryDb.users).find((u) => u.referral_code.toUpperCase() === normalized);
-  return user ? { ...user } : null;
+  return user ? sanitizeUser({ ...user }) : null;
 }
 
 export async function createUser(user: User): Promise<User> {
   loadDatabase();
   await syncWithBlobStore();
-  memoryDb.users[user.id] = { ...user };
+  const sanitized = sanitizeUser({ ...user });
+  memoryDb.users[user.id] = sanitized;
   await persistToBlobStore();
-  return { ...user };
+  return { ...sanitized };
 }
 
 export async function updateUser(id: string, updates: Partial<User>): Promise<User | null> {
@@ -149,7 +157,7 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   await syncWithBlobStore();
   const user = memoryDb.users[id];
   if (!user) return null;
-  const updated = { ...user, ...updates };
+  const updated = sanitizeUser({ ...user, ...updates });
   memoryDb.users[id] = updated;
   await persistToBlobStore();
   return { ...updated };
@@ -158,35 +166,43 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
 export async function listAllUsers(): Promise<User[]> {
   loadDatabase();
   await syncWithBlobStore();
-  return Object.values(memoryDb.users).map((u) => ({ ...u }));
+  return Object.values(memoryDb.users).map((u) => sanitizeUser({ ...u }));
 }
 
 // --- DAILY USAGE & TOKEN OPERATIONS ---
 
 export async function getDailyUsage(userId: string, date: string): Promise<DailyUsage> {
   loadDatabase();
+  await syncWithBlobStore();
+  const user = await getUserById(userId);
+  const isFree = !user || user.role === 'free';
+  const roleLimit = isFree ? 100 : (user.role === 'admin' ? 999999 : (user.daily_token_limit || 500));
+
   const key = `${userId}_${date}`;
   const existing = memoryDb.dailyUsage[key];
   if (existing) {
+    if (isFree && (existing.tokens_allocated > 100 || existing.tokens_remaining > 100)) {
+      existing.tokens_allocated = 100;
+      existing.tokens_remaining = Math.min(100, Math.max(0, 100 - (existing.tokens_used || 0)));
+      await persistToBlobStore();
+    }
     return { ...existing };
   }
 
   // If not found, initialize new day entry based on user's daily limit
-  const user = await getUserById(userId);
-  const allocated = user ? user.daily_token_limit : DEFAULT_ROLE_LIMITS.free;
-
   const newUsage: DailyUsage = {
     id: `usage-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     user_id: userId,
     date,
-    tokens_allocated: allocated,
+    tokens_allocated: roleLimit,
     tokens_used: 0,
-    tokens_remaining: allocated,
+    tokens_remaining: roleLimit,
     last_reset_time: new Date().toISOString(),
   };
 
   memoryDb.dailyUsage[key] = newUsage;
   saveDatabase();
+  await persistToBlobStore();
   return { ...newUsage };
 }
 
@@ -195,6 +211,7 @@ export async function saveDailyUsage(usage: DailyUsage): Promise<DailyUsage> {
   const key = `${usage.user_id}_${usage.date}`;
   memoryDb.dailyUsage[key] = { ...usage };
   saveDatabase();
+  await persistToBlobStore();
   return { ...usage };
 }
 

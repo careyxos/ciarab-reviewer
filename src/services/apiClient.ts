@@ -13,6 +13,23 @@ export function setStoredToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function getStoredUser(): UserProfile | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setStoredUser(user: UserProfile) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch (e) {}
+}
+
 export function clearStoredAuth() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);

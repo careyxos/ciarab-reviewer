@@ -68,9 +68,16 @@ export function verifySessionToken(token: string): TokenPayload | null {
   }
 }
 
-export function extractTokenFromHeader(header?: string): string | null {
+export function extractTokenFromHeader(headerOrHeaders?: any): string | null {
+  if (!headerOrHeaders) return null;
+  let header = '';
+  if (typeof headerOrHeaders === 'string') {
+    header = headerOrHeaders;
+  } else if (typeof headerOrHeaders === 'object') {
+    header = headerOrHeaders.authorization || headerOrHeaders.Authorization || headerOrHeaders.AUTHORIZATION || '';
+  }
   if (!header) return null;
-  if (header.startsWith('Bearer ')) {
+  if (header.startsWith('Bearer ') || header.startsWith('bearer ')) {
     return header.slice(7).trim();
   }
   return header.trim();

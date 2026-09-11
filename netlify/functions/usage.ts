@@ -17,7 +17,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
   }
 
   try {
-    const token = extractTokenFromHeader(event.headers.authorization);
+    const token = extractTokenFromHeader(event.headers);
     if (!token) {
       return { statusCode: 401, headers: JSON_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
     }
@@ -34,6 +34,14 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     const today = getTodayString();
     const usage = await getDailyUsage(user.id, today);
+
+    // Hard enforcement: Free users are always capped at 100 tokens
+    if (user.role === 'free' && usage.tokens_allocated > 100) {
+      usage.tokens_allocated = 100;
+      usage.tokens_remaining = Math.min(100, Math.max(0, 100 - usage.tokens_used));
+      const { saveDailyUsage } = await import('./lib/db');
+      await saveDailyUsage(usage);
+    }
     const logs = await getAIUsageLogs(user.id, 25);
     const countdown = getResetCountdown();
 

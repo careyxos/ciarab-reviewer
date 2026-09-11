@@ -15,7 +15,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
   }
 
   try {
-    const token = extractTokenFromHeader(event.headers.authorization);
+    const token = extractTokenFromHeader(event.headers);
     if (!token) {
       return { statusCode: 401, headers: JSON_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
     }

@@ -205,7 +205,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     // --- 3. GET CURRENT USER (/me) ---
     if (event.httpMethod === 'GET' && (action === 'me' || action === 'auth')) {
-      const token = extractTokenFromHeader(event.headers.authorization);
+      const token = extractTokenFromHeader(event.headers);
       if (!token) {
         return { statusCode: 401, headers: JSON_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
       }
@@ -288,7 +288,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     // --- 5. UPDATE PROFILE ---
     if (event.httpMethod === 'PATCH' && action === 'profile') {
-      const token = extractTokenFromHeader(event.headers.authorization);
+      const token = extractTokenFromHeader(event.headers);
       const payload = token ? verifySessionToken(token) : null;
       if (!payload) {
         return { statusCode: 401, headers: JSON_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
