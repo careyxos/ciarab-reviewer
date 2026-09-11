@@ -69,9 +69,13 @@ export const handler: Handler = async (event: HandlerEvent) => {
       const uniqueRefCode = generateReferralCode();
       const now = new Date().toISOString();
 
-      // First registered user or matching admin email becomes admin
-      const isFirstUser = (await getUserByEmail('carey@chobee.app')) === null;
-      const isAdmin = email.toLowerCase().includes('carey') || email.toLowerCase().includes('admin');
+      // Strict whitelist: Only the owner's exact email is ever granted admin; all others are strictly 'free' users
+      const ADMIN_EMAILS = [
+        'careysison21@gmail.com',
+        'carey@chobee.app',
+        ...(process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase().split(',').map((e) => e.trim()) : [])
+      ];
+      const isAdmin = ADMIN_EMAILS.includes(email.trim().toLowerCase());
       const role = isAdmin ? 'admin' : 'free';
       const dailyLimit = DEFAULT_ROLE_LIMITS[role];
 

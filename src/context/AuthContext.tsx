@@ -36,6 +36,12 @@ const DEFAULT_USAGE: DailyUsageState = {
   resetCountdown: '24h 00m',
 };
 
+const ADMIN_WHITELIST = [
+  'careysison21@gmail.com',
+  'carey@chobee.app',
+  ...(import.meta.env.VITE_ADMIN_EMAIL ? (import.meta.env.VITE_ADMIN_EMAIL as string).toLowerCase().split(',').map((e: string) => e.trim()) : [])
+];
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -139,7 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err: any) {
       // If serverless endpoint is not reachable (pure local preview), support local test accounts
       if (err?.message?.includes('Failed to fetch') || err?.status === 404) {
-        const mockRole = email.toLowerCase().includes('admin') || email.toLowerCase().includes('carey') ? 'admin' : 'free';
+        const mockRole = ADMIN_WHITELIST.includes(email.trim().toLowerCase()) ? 'admin' : 'free';
         const mockUser: UserProfile = {
           id: `local-${Date.now()}`,
           email,
@@ -185,7 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       closeAuthModal();
     } catch (err: any) {
       if (err?.message?.includes('Failed to fetch') || err?.status === 404) {
-        const mockRole = email.toLowerCase().includes('admin') || email.toLowerCase().includes('carey') ? 'admin' : 'free';
+        const mockRole = ADMIN_WHITELIST.includes(email.trim().toLowerCase()) ? 'admin' : 'free';
         const mockUser: UserProfile = {
           id: `local-${Date.now()}`,
           email,
