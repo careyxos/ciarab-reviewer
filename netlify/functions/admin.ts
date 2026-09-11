@@ -44,9 +44,37 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     // --- 1. ADMIN METRICS & DASHBOARD ---
     if (event.httpMethod === 'GET' && subRoute === 'metrics') {
-      const allUsers = await listAllUsers();
       const allLogs = await getAllAIUsageLogs(200);
       const today = getTodayString();
+
+      // Check Supabase if configured
+      let allUsers: any[] = await listAllUsers();
+      const sbUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (sbUrl && sbKey) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const sb = createClient(sbUrl, sbKey);
+          const { data: dbProfiles } = await sb.from('profiles').select('*');
+          if (dbProfiles && dbProfiles.length > 0) {
+            const mapped = dbProfiles.map((p) => ({
+              id: p.id,
+              email: p.email,
+              display_name: p.display_name,
+              role: p.role,
+              daily_token_limit: p.daily_token_limit,
+              referral_code: p.referral_code,
+              referred_by: p.referred_by,
+              created_at: p.created_at,
+              last_login: p.last_login_at,
+              is_disabled: p.is_disabled,
+            }));
+            const emails = new Set(mapped.map((m) => m.email.toLowerCase()));
+            allUsers = [...mapped, ...allUsers.filter((u) => !emails.has(u.email.toLowerCase()))];
+          }
+        } catch (e) {}
+      }
 
       // Active today: users with login today or logs today
       const activeUserIds = new Set<string>();
@@ -91,9 +119,49 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     // --- 2. USER LIST ---
     if (event.httpMethod === 'GET' && (subRoute === 'users' || subRoute === 'admin')) {
-      const allUsers = await listAllUsers();
       const today = getTodayString();
+      const sbUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
+      if (sbUrl && sbKey) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const sb = createClient(sbUrl, sbKey);
+          const { data: dbProfiles } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+          if (dbProfiles && dbProfiles.length > 0) {
+            const { data: usages } = await sb.from('daily_usage').select('*').eq('date', today);
+            const usageMap = new Map((usages || []).map((u: any) => [u.user_id, u]));
+
+            const mapped = dbProfiles.map((p) => {
+              const uUsage = usageMap.get(p.id);
+              return {
+                id: p.id,
+                email: p.email,
+                displayName: p.display_name,
+                role: p.role,
+                dailyTokenLimit: p.daily_token_limit,
+                referralCode: p.referral_code,
+                referredBy: p.referred_by,
+                createdAt: p.created_at,
+                lastLogin: p.last_login_at,
+                isDisabled: Boolean(p.is_disabled),
+                todayUsage: {
+                  used: uUsage?.tokens_used || 0,
+                  remaining: uUsage?.tokens_remaining ?? (p.daily_token_limit || 100),
+                },
+              };
+            });
+
+            return {
+              statusCode: 200,
+              headers: JSON_HEADERS,
+              body: JSON.stringify({ users: mapped }),
+            };
+          }
+        } catch (e) {}
+      }
+
+      const allUsers = await listAllUsers();
       const userDetails = await Promise.all(
         allUsers.map(async (u) => {
           const usage = await getDailyUsage(u.id, today);

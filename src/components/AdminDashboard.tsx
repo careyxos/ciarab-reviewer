@@ -113,27 +113,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchAdminData = async () => {
     setIsLoading(true);
-    try {
-      const [metricsRes, usersRes] = await Promise.all([
-        apiRequest<{ metrics: any }>('/api/admin/metrics'),
-        apiRequest<{ users: AdminUserItem[] }>('/api/admin/users'),
-      ]);
 
-      if (metricsRes?.metrics) setMetrics(metricsRes.metrics);
-      if (usersRes?.users) setUsers(usersRes.users);
-    } catch (err) {
-      console.warn('Admin fetch error, checking Supabase direct...', err);
-      // Direct Supabase fallback if serverless proxy is cold
-      const supabase = getSupabase();
-      if (isSupabaseConfigured() && supabase) {
-        try {
-          const { data: dbProfiles } = await supabase
-            .from('profiles')
+    // 1. Direct Supabase Query first
+    const supabase = getSupabase();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: dbProfiles, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(dbProfiles) && dbProfiles.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          const { data: usages } = await supabase
+            .from('daily_usage')
             .select('*')
-            .order('created_at', { ascending: false });
+            .eq('date', today);
 
-          if (dbProfiles && Array.isArray(dbProfiles)) {
-            const mapped: AdminUserItem[] = dbProfiles.map((p) => ({
+          const usageMap = new Map((usages || []).map((u: any) => [u.user_id, u]));
+
+          const mapped: AdminUserItem[] = dbProfiles.map((p) => {
+            const uUsage = usageMap.get(p.id);
+            return {
               id: p.id,
               email: p.email,
               displayName: p.display_name,
@@ -146,26 +147,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               lastLogin: p.last_login_at,
               lastSeenAt: p.last_seen_at,
               isDisabled: Boolean(p.is_disabled),
-              todayUsage: { used: 0, remaining: p.daily_token_limit || 100 },
-            }));
-            setUsers(mapped);
-          }
-        } catch (e) {}
-      } else if (user) {
-        setUsers([
-          {
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            role: user.role,
-            dailyTokenLimit: user.dailyTokenLimit,
-            referralCode: user.referralCode,
-            createdAt: user.createdAt,
-            isDisabled: false,
-            todayUsage: { used: 0, remaining: user.dailyTokenLimit },
-          },
-        ]);
+              todayUsage: {
+                used: uUsage?.tokens_used || 0,
+                remaining: uUsage?.tokens_remaining ?? (p.daily_token_limit || 100),
+              },
+            };
+          });
+
+          setUsers(mapped);
+          setMetrics({
+            totalUsers: mapped.length,
+            activeUsersToday: mapped.filter((u) => u.lastLogin && u.lastLogin.startsWith(today)).length,
+            aiRequestsToday: 0,
+            totalTokensConsumedToday: mapped.reduce((acc, u) => acc + (u.todayUsage?.used || 0), 0),
+            mostUsedFeature: 'flashcards',
+          });
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Supabase direct admin fetch error:', err);
       }
+    }
+
+    // 2. Serverless API Endpoint Fallback
+    try {
+      const [metricsRes, usersRes] = await Promise.all([
+        apiRequest<{ metrics: any }>('/api/admin/metrics'),
+        apiRequest<{ users: AdminUserItem[] }>('/api/admin/users'),
+      ]);
+
+      if (metricsRes?.metrics) setMetrics(metricsRes.metrics);
+      if (usersRes?.users) setUsers(usersRes.users);
+    } catch (err) {
+      console.warn('Admin API fetch error:', err);
     } finally {
       setIsLoading(false);
     }
