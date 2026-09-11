@@ -69,11 +69,12 @@ export const handler: Handler = async (event: HandlerEvent) => {
       const uniqueRefCode = generateReferralCode();
       const now = new Date().toISOString();
 
-      // Strict whitelist: Only the owner's exact email is ever granted admin; all others are strictly 'free' users
+      // Strict whitelist: Only owner & whitelisted emails get admin; all others are strictly 'free' users
+      const envAdmin = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
       const ADMIN_EMAILS = [
         'careysison21@gmail.com',
         'carey@chobee.app',
-        ...(process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase().split(',').map((e) => e.trim()) : [])
+        ...(envAdmin ? envAdmin.toLowerCase().split(',').map((e) => e.trim()) : [])
       ];
       const isAdmin = ADMIN_EMAILS.includes(email.trim().toLowerCase());
       const role = isAdmin ? 'admin' : 'free';
