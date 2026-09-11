@@ -20,10 +20,14 @@ export async function generateStudyMaterial(
   content: string,
   options: GenerationOptions
 ): Promise<Omit<StudySet, 'id' | 'createdAt' | 'updatedAt'>> {
-  // If user provided a Gemini API Key, we can try calling the Gemini API
-  if (options.apiKey && options.apiKey.trim().length > 10) {
+  // If user provided a Gemini API Key or environment variable is set
+  const apiKey = (options.apiKey && options.apiKey.trim().length > 10) 
+    ? options.apiKey.trim() 
+    : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY.trim() : '');
+
+  if (apiKey && apiKey.length > 10) {
     try {
-      const result = await callGeminiAPI(content, options);
+      const result = await callGeminiAPI(content, { ...options, apiKey });
       if (result) return result;
     } catch (err) {
       console.warn('Gemini API call failed, falling back to local smart engine:', err);
@@ -376,7 +380,13 @@ function shuffleArray<T>(array: T[]): T[] {
 
 // Optional Direct Gemini API Integration
 async function callGeminiAPI(content: string, options: GenerationOptions) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${options.apiKey}`;
+  const candidateModels = [
+    'gemini-3.6-flash',
+    'gemini-2.5-flash',
+    'gemini-flash-latest',
+    'gemini-1.5-flash',
+  ];
+
   const prompt = `You are a warm, supportive study assistant named "Baby Bear Chobee" creating high-yield study materials for "Mayor Cia".
   Analyze the following study material and return a STRICT valid JSON object with the following structure:
   {
@@ -413,51 +423,66 @@ async function callGeminiAPI(content: string, options: GenerationOptions) {
   ${content.slice(0, 15000)}
   `;
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json' },
-    }),
-  });
+  for (const model of candidateModels) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${options.apiKey}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      });
 
-  if (!response.ok) throw new Error(`Gemini API returned ${response.status}`);
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error('Empty Gemini response');
+      if (!response.ok) {
+        console.warn(`Gemini model ${model} returned status ${response.status}, trying next model...`);
+        continue;
+      }
 
-  const parsed = JSON.parse(rawText);
-  return {
-    title: options.title,
-    description: `AI-synthesized reviewer with ${parsed.flashcards?.length || 0} cards and practice test questions.`,
-    category: options.category,
-    tags: [options.category, 'Gemini AI', 'Mayor Reviewer'],
-    flashcards: (parsed.flashcards || []).map((f: Partial<Flashcard>, idx: number) => ({
-      id: `gemini-fc-${Date.now()}-${idx}`,
-      front: f.front || '',
-      back: f.back || '',
-      hint: f.hint || 'Remember key terms',
-      category: options.category,
-      tags: [options.category],
-      easeFactor: 2.5,
-      interval: 1,
-      repetitions: 0,
-      nextReviewDate: new Date().toISOString(),
-      state: 'new' as const,
-      aiExplanation: f.aiExplanation || generateTaglishExplanation(f.front || '', f.back || ''),
-    })),
-    quizQuestions: (parsed.quizQuestions || []).map((q: Partial<QuizQuestion>, idx: number) => ({
-      id: `gemini-quiz-${Date.now()}-${idx}`,
-      type: q.type || 'multiple_choice',
-      question: q.question || '',
-      options: q.options || ['True', 'False'],
-      correctAnswer: q.correctAnswer || '',
-      explanation: q.explanation || '',
-      topicCategory: options.category,
-    })),
-    summary: parsed.summary || { overview: '', keyConcepts: [], glossary: [], examQuestions: [] },
-    themeColor: options.themeColor,
-    author: 'Chobee AI for Mayor Cia',
-  };
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) continue;
+
+      const cleanJson = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      return {
+        title: options.title,
+        description: `AI-synthesized reviewer with ${parsed.flashcards?.length || 0} cards and practice test questions.`,
+        category: options.category,
+        tags: [options.category, 'Gemini AI', 'Mayor Reviewer'],
+        flashcards: (parsed.flashcards || []).map((f: Partial<Flashcard>, idx: number) => ({
+          id: `gemini-fc-${Date.now()}-${idx}`,
+          front: f.front || '',
+          back: f.back || '',
+          hint: f.hint || 'Remember key terms',
+          category: options.category,
+          tags: [options.category],
+          easeFactor: 2.5,
+          interval: 1,
+          repetitions: 0,
+          nextReviewDate: new Date().toISOString(),
+          state: 'new' as const,
+          aiExplanation: f.aiExplanation || generateTaglishExplanation(f.front || '', f.back || ''),
+        })),
+        quizQuestions: (parsed.quizQuestions || []).map((q: Partial<QuizQuestion>, idx: number) => ({
+          id: `gemini-quiz-${Date.now()}-${idx}`,
+          type: q.type || 'multiple_choice',
+          question: q.question || '',
+          options: q.options || ['True', 'False'],
+          correctAnswer: q.correctAnswer || '',
+          explanation: q.explanation || '',
+          topicCategory: options.category,
+        })),
+        summary: parsed.summary || { overview: '', keyConcepts: [], glossary: [], examQuestions: [] },
+        themeColor: options.themeColor,
+        author: 'Chobee AI for Mayor Cia',
+      };
+    } catch (err) {
+      console.warn(`Error generating with model ${model}:`, err);
+    }
+  }
+
+  throw new Error('All candidate Gemini models failed.');
 }
