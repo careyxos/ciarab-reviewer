@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, 
   Users, 
@@ -12,36 +12,63 @@ import {
   Edit, 
   Ban, 
   Check, 
-  Crown,
-  Sparkles,
-  Download,
-  Calendar,
-  UserCheck,
-  Plus
+  Crown, 
+  Sparkles, 
+  Download, 
+  Calendar, 
+  UserCheck, 
+  Plus,
+  Radio,
+  Smartphone,
+  Laptop,
+  Tablet,
+  Clock,
+  Bell,
+  X,
+  Layers,
+  HelpCircle,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/apiClient';
 import { playHapticTap } from '../services/audioService';
+import { fireLightCelebration } from '../services/fxService';
+import { 
+  subscribeToAdminPresence, 
+  computeUserPresence, 
+  PresenceSession, 
+  AggregatedUserPresence 
+} from '../services/presenceService';
+import { getSupabase, isSupabaseConfigured } from '../services/supabaseClient';
 
 interface AdminDashboardProps {
   onBackToDashboard: () => void;
   soundEnabled?: boolean;
 }
 
-interface AdminUserItem {
+export interface AdminUserItem {
   id: string;
   email: string;
   displayName: string;
   role: string;
+  plan?: string;
   dailyTokenLimit: number;
   referralCode: string;
   referredBy?: string;
   createdAt: string;
   lastLogin?: string;
+  lastSeenAt?: string;
   isDisabled: boolean;
   todayUsage?: {
     used: number;
     remaining: number;
+  };
+  aiStats?: {
+    flashcards: number;
+    quizzes: number;
+    summaries: number;
+    chats: number;
   };
 }
 
@@ -66,9 +93,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'recent' | 'offline'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editTokenLimit, setEditTokenLimit] = useState<number>(100);
+
+  // Selected User Modal State
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState<AdminUserItem | null>(null);
+
+  // Live Multi-Device Presence Map
+  const [presenceMap, setPresenceMap] = useState<Map<string, PresenceSession[]>>(new Map());
+
+  // Real-time notification toast
+  const [newUserNotification, setNewUserNotification] = useState<{
+    name: string;
+    email: string;
+    time: string;
+  } | null>(null);
 
   const fetchAdminData = async () => {
     setIsLoading(true);
@@ -81,9 +122,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (metricsRes?.metrics) setMetrics(metricsRes.metrics);
       if (usersRes?.users) setUsers(usersRes.users);
     } catch (err) {
-      console.warn('Admin fetch error, showing local admin view:', err);
-      // Fallback local admin data if serverless is in dev mode
-      if (user) {
+      console.warn('Admin fetch error, checking Supabase direct...', err);
+      // Direct Supabase fallback if serverless proxy is cold
+      const supabase = getSupabase();
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data: dbProfiles } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (dbProfiles && Array.isArray(dbProfiles)) {
+            const mapped: AdminUserItem[] = dbProfiles.map((p) => ({
+              id: p.id,
+              email: p.email,
+              displayName: p.display_name,
+              role: p.role,
+              plan: p.plan || 'free',
+              dailyTokenLimit: p.daily_token_limit || 100,
+              referralCode: p.referral_code,
+              referredBy: p.referred_by,
+              createdAt: p.created_at,
+              lastLogin: p.last_login_at,
+              lastSeenAt: p.last_seen_at,
+              isDisabled: Boolean(p.is_disabled),
+              todayUsage: { used: 0, remaining: p.daily_token_limit || 100 },
+            }));
+            setUsers(mapped);
+          }
+        } catch (e) {}
+      } else if (user) {
         setUsers([
           {
             id: user.id,
@@ -94,7 +162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             referralCode: user.referralCode,
             createdAt: user.createdAt,
             isDisabled: false,
-            todayUsage: { used: 15, remaining: 85 },
+            todayUsage: { used: 0, remaining: user.dailyTokenLimit },
           },
         ]);
       }
@@ -105,6 +173,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     fetchAdminData();
+  }, []);
+
+  // Subscribe to Realtime Presence Channel
+  useEffect(() => {
+    const unsubscribe = subscribeToAdminPresence((newMap) => {
+      setPresenceMap(new Map(newMap));
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Real-time Database Event Subscription (New Signups & Usage Updates via WebSocket)
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!isSupabaseConfigured() || !supabase) return;
+
+    const channel = supabase
+      .channel('admin-realtime-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'profiles' },
+        (payload: any) => {
+          if (payload.new) {
+            const newP = payload.new;
+            const newUserItem: AdminUserItem = {
+              id: newP.id,
+              email: newP.email,
+              displayName: newP.display_name,
+              role: newP.role,
+              plan: newP.plan || 'free',
+              dailyTokenLimit: newP.daily_token_limit || 100,
+              referralCode: newP.referral_code,
+              referredBy: newP.referred_by,
+              createdAt: newP.created_at,
+              lastLogin: newP.last_login_at,
+              lastSeenAt: newP.last_seen_at,
+              isDisabled: Boolean(newP.is_disabled),
+              todayUsage: { used: 0, remaining: newP.daily_token_limit || 100 },
+            };
+
+            setUsers((prev) => [newUserItem, ...prev.filter((u) => u.id !== newUserItem.id)]);
+            setMetrics((prev) => ({ ...prev, totalUsers: prev.totalUsers + 1 }));
+
+            // Trigger Real-Time Notification & Confetti
+            setNewUserNotification({
+              name: newUserItem.displayName,
+              email: newUserItem.email,
+              time: 'Just now',
+            });
+            fireLightCelebration(0.5, 0.6);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload: any) => {
+          if (payload.new) {
+            const upd = payload.new;
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === upd.id
+                  ? {
+                      ...u,
+                      displayName: upd.display_name,
+                      role: upd.role,
+                      plan: upd.plan,
+                      dailyTokenLimit: upd.daily_token_limit,
+                      isDisabled: Boolean(upd.is_disabled),
+                      lastSeenAt: upd.last_seen_at,
+                    }
+                  : u
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        channel.unsubscribe();
+      } catch (e) {}
+    };
   }, []);
 
   const handleToggleDisable = async (targetUser: AdminUserItem) => {
@@ -122,6 +276,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setUsers((prev) =>
         prev.map((u) => (u.id === targetUser.id ? { ...u, isDisabled: newStatus } : u))
       );
+      if (selectedUserForDetails?.id === targetUser.id) {
+        setSelectedUserForDetails((prev) => (prev ? { ...prev, isDisabled: newStatus } : null));
+      }
     } catch (e: any) {
       alert(e?.message || 'Failed to update user status');
     }
@@ -152,6 +309,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             : u
         )
       );
+      if (selectedUserForDetails?.id === targetUserId) {
+        setSelectedUserForDetails((prev) =>
+          prev
+            ? {
+                ...prev,
+                dailyTokenLimit: editTokenLimit,
+                todayUsage: {
+                  used: prev.todayUsage?.used || 0,
+                  remaining: Math.max(0, editTokenLimit - (prev.todayUsage?.used || 0)),
+                },
+              }
+            : null
+        );
+      }
       setEditingUserId(null);
     } catch (e: any) {
       alert(e?.message || 'Failed to update token limit');
@@ -186,323 +357,616 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             : u
         )
       );
+      if (selectedUserForDetails?.id === targetUser.id) {
+        setSelectedUserForDetails((prev) =>
+          prev
+            ? {
+                ...prev,
+                role: newRole,
+                dailyTokenLimit: tokenLimit,
+              }
+            : null
+        );
+      }
     } catch (e: any) {
       alert(e?.message || 'Failed to update user role');
     }
   };
 
+  // Compute live presence for all users
+  const usersWithPresence = useMemo(() => {
+    return users.map((u) => {
+      const liveSessions = presenceMap.get(u.id);
+      const presence = computeUserPresence(u.id, liveSessions, u.lastSeenAt || u.lastLogin);
+      return {
+        ...u,
+        presence,
+      };
+    });
+  }, [users, presenceMap]);
+
+  // Online count calculation
+  const onlineCount = useMemo(() => {
+    return usersWithPresence.filter((u) => u.presence.status === 'online').length;
+  }, [usersWithPresence]);
+
+  const recentCount = useMemo(() => {
+    return usersWithPresence.filter((u) => u.presence.status === 'recent').length;
+  }, [usersWithPresence]);
+
+  const offlineCount = useMemo(() => {
+    return usersWithPresence.filter((u) => u.presence.status === 'offline').length;
+  }, [usersWithPresence]);
+
+  // Filtered users
+  const filteredUsers = useMemo(() => {
+    return usersWithPresence.filter((u) => {
+      const matchesSearch =
+        u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.referralCode.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+      if (statusFilter === 'online') return u.presence.status === 'online';
+      if (statusFilter === 'recent') return u.presence.status === 'recent';
+      if (statusFilter === 'offline') return u.presence.status === 'offline';
+      return true;
+    });
+  }, [usersWithPresence, searchQuery, statusFilter]);
+
   const exportUsersCSV = () => {
     if (soundEnabled) playHapticTap();
-    const headers = ['Name', 'Email', 'Role', 'Daily Limit', 'Tokens Used Today', 'Tokens Remaining', 'Referral Code', 'Referred By', 'Status', 'Registered At'];
-    const rows = users.map((u) => [
+    const headers = [
+      'Name',
+      'Email',
+      'Status',
+      'Role',
+      'Daily Limit',
+      'Tokens Used Today',
+      'Tokens Remaining',
+      'Referral Code',
+      'Account Disabled',
+      'Registered At'
+    ];
+    const rows = filteredUsers.map((u) => [
       `"${u.displayName.replace(/"/g, '""')}"`,
       `"${u.email}"`,
+      u.presence.status,
       u.role,
       u.dailyTokenLimit,
       u.todayUsage?.used || 0,
-      u.todayUsage?.remaining || u.dailyTokenLimit,
+      u.todayUsage?.remaining ?? u.dailyTokenLimit,
       u.referralCode,
-      `"${u.referredBy || 'None'}"`,
-      u.isDisabled ? 'Disabled' : 'Active',
-      `"${new Date(u.createdAt).toLocaleString()}"`,
+      u.isDisabled ? 'Yes' : 'No',
+      u.createdAt
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `chobee-users-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `chobee_users_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-
-  const exportUsersJSON = () => {
-    if (soundEnabled) playHapticTap();
-    const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `chobee-users-${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const filteredUsers = users.filter((u) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      u.email.toLowerCase().includes(q) ||
-      u.displayName.toLowerCase().includes(q) ||
-      u.referralCode.toLowerCase().includes(q)
-    );
-  });
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-4 animate-fadeIn">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => {
-            if (soundEnabled) playHapticTap();
-            onBackToDashboard();
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 hover:bg-white text-xs font-bold text-chobee-navy-900 border border-slate-200/80 shadow-xs transition-all"
-        >
-          <ArrowLeft className="w-4 h-4 text-chobee-pink-500" />
-          <span>Back to Study Dashboard</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-xs font-black">
-            <Crown className="w-3.5 h-3.5" />
-            <span>Admin Console</span>
+    <div className="space-y-6 max-w-7xl mx-auto py-4 animate-fadeIn">
+      {/* Real-time New User Registration Banner */}
+      {newUserNotification && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg flex items-center justify-between animate-bounce">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-white/20">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-extrabold text-sm">🔔 New User Registered Online!</p>
+              <p className="text-xs text-emerald-100">
+                <span className="font-bold text-white">{newUserNotification.name}</span> ({newUserNotification.email}) just created an account.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => setNewUserNotification(null)}
+            className="p-1 rounded-lg hover:bg-white/20 text-emerald-100"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <button
+            onClick={() => {
+              if (soundEnabled) playHapticTap();
+              onBackToDashboard();
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 hover:bg-white text-xs font-bold text-chobee-navy-900 border border-slate-200/80 shadow-xs transition-all mb-2"
+          >
+            <ArrowLeft className="w-4 h-4 text-chobee-pink-500" />
+            <span>Back to Study Platform</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-md">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-chobee-navy-950 font-display">
+                Chobee Live Admin Console 👑
+              </h1>
+              <p className="text-xs text-slate-500 font-semibold flex items-center gap-2">
+                <span>Real-Time Cloud Platform Monitoring</span>
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-600 font-bold">WebSocket Connected</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               fetchAdminData();
             }}
-            className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-500 hover:text-chobee-navy-900 border border-slate-200/80"
+            className="p-2.5 rounded-2xl bg-white/80 hover:bg-white text-slate-600 border border-slate-200/80 shadow-xs"
+            title="Refresh Users"
           >
             <RotateCcw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={exportUsersCSV}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/80 hover:bg-white text-xs font-bold text-chobee-navy-900 border border-slate-200/80 shadow-xs"
+          >
+            <Download className="w-4 h-4 text-chobee-blue-500" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-white/90 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Users</span>
-            <Users className="w-4 h-4 text-chobee-pink-500" />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="glass-panel p-5 rounded-3xl border border-white/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center text-chobee-pink-600 shrink-0">
+            <Users className="w-6 h-6" />
           </div>
-          <div className="text-2xl font-black text-chobee-navy-950 font-display">
-            {metrics.totalUsers}
+          <div>
+            <span className="text-[11px] font-black uppercase text-slate-400 block tracking-wider">
+              Total Users
+            </span>
+            <span className="text-2xl font-black text-chobee-navy-950 font-display">
+              {users.length}
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Registered accounts</div>
         </div>
 
-        <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-white/90 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Active Today</span>
-            <Activity className="w-4 h-4 text-emerald-500" />
+        <div className="glass-panel p-5 rounded-3xl border border-white/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 relative">
+            <Radio className="w-6 h-6 animate-pulse" />
           </div>
-          <div className="text-2xl font-black text-chobee-navy-950 font-display">
-            {metrics.activeUsersToday}
+          <div>
+            <span className="text-[11px] font-black uppercase text-slate-400 block tracking-wider">
+              Online Now
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-black text-emerald-600 font-display">
+                {onlineCount}
+              </span>
+              <span className="text-[11px] font-bold text-slate-400">
+                ({recentCount} recent)
+              </span>
+            </div>
           </div>
-          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Logged in / studying</div>
         </div>
 
-        <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-white/90 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">AI Requests</span>
-            <Sparkles className="w-4 h-4 text-purple-500" />
+        <div className="glass-panel p-5 rounded-3xl border border-white/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-chobee-blue-600 shrink-0">
+            <Zap className="w-6 h-6" />
           </div>
-          <div className="text-2xl font-black text-chobee-navy-950 font-display">
-            {metrics.aiRequestsToday}
+          <div>
+            <span className="text-[11px] font-black uppercase text-slate-400 block tracking-wider">
+              AI Requests Today
+            </span>
+            <span className="text-2xl font-black text-chobee-navy-950 font-display">
+              {metrics.aiRequestsToday}
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Generations today</div>
         </div>
 
-        <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-white/90 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Tokens Consumed</span>
-            <Zap className="w-4 h-4 text-amber-500" />
+        <div className="glass-panel p-5 rounded-3xl border border-white/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+            <Activity className="w-6 h-6" />
           </div>
-          <div className="text-2xl font-black text-chobee-navy-950 font-display">
-            {metrics.totalTokensConsumedToday}
+          <div>
+            <span className="text-[11px] font-black uppercase text-slate-400 block tracking-wider">
+              Tokens Consumed
+            </span>
+            <span className="text-2xl font-black text-chobee-navy-950 font-display">
+              {metrics.totalTokensConsumedToday}
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Most used: {metrics.mostUsedFeature}</div>
         </div>
       </div>
 
-      {/* User Directory */}
-      <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-white/90 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-black text-chobee-navy-900 font-display flex items-center gap-2">
-              <span>User Directory & Token Control</span>
-              <span className="px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 text-[11px] font-bold">
-                {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 font-semibold">
-              Manage registered accounts, promote your girlfriend to Admin/Unlimited, or download the full user list.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="relative w-full sm:w-56">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search name, email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 rounded-xl border border-slate-200 bg-white/90 text-xs font-semibold text-chobee-navy-900 focus:outline-none focus:border-chobee-pink-400"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={exportUsersCSV}
-                title="Download user list as CSV for Excel / Google Sheets"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200 shadow-2xs transition-all"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
-
-              <button
-                onClick={exportUsersJSON}
-                title="Download raw user database as JSON"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-all"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>JSON</span>
-              </button>
-            </div>
-          </div>
+      {/* Filter Tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-white/70 border border-slate-200/80 rounded-2xl shadow-xs w-full sm:w-auto overflow-x-auto">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+              statusFilter === 'all'
+                ? 'bg-chobee-navy-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-chobee-navy-900'
+            }`}
+          >
+            All Users ({users.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter('online')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+              statusFilter === 'online'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-emerald-700 hover:bg-emerald-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Online ({onlineCount})</span>
+          </button>
+          <button
+            onClick={() => setStatusFilter('recent')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+              statusFilter === 'recent'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'text-amber-700 hover:bg-amber-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span>Recent ({recentCount})</span>
+          </button>
+          <button
+            onClick={() => setStatusFilter('offline')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+              statusFilter === 'offline'
+                ? 'bg-slate-600 text-white shadow-xs'
+                : 'text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-slate-300" />
+            <span>Offline ({offlineCount})</span>
+          </button>
         </div>
 
-        {/* GF Admin Quick Tip */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-pink-50/90 via-purple-50/90 to-blue-50/90 border border-pink-200/80 flex items-start gap-3 text-xs">
-          <Sparkles className="w-4 h-4 text-pink-500 shrink-0 mt-0.5" />
-          <div className="text-chobee-navy-950 leading-relaxed">
-            <strong className="font-bold text-pink-700">Paano gawing Unlimited Admin si Mayor Cia:</strong> Hanapin ang pangalan o email niya sa table sa ibaba, at i-click ang dropdown sa tapat ng <span className="font-bold font-mono">Role</span> para gawing <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-black text-[10px]">👑 ADMIN</span>. Awtomatiko siyang magkakaroon ng <strong>999,999 Tokens (Unlimited)</strong>!
-          </div>
+        {/* Search Bar */}
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search by name, email, referral..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-white/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-chobee-navy-900 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400 shadow-xs"
+          />
         </div>
+      </div>
 
-        {isLoading ? (
-          <div className="py-8 text-center text-xs font-bold text-slate-400">
-            Loading user list...
-          </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="py-8 text-center text-xs font-semibold text-slate-400">
-            No users found matching query.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200/80 text-slate-400 font-bold">
-                  <th className="py-2.5 px-3">User</th>
-                  <th className="py-2.5 px-3">Role</th>
-                  <th className="py-2.5 px-3">Signed Up</th>
-                  <th className="py-2.5 px-3">Daily Limit</th>
-                  <th className="py-2.5 px-3">Today Status</th>
-                  <th className="py-2.5 px-3">Referral Code</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
+      {/* Users Table */}
+      <div className="glass-panel rounded-3xl border border-white/80 shadow-glow-dual overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-5 py-4">User</th>
+                <th className="px-5 py-4">Status & Presence</th>
+                <th className="px-5 py-4">Role / Plan</th>
+                <th className="px-5 py-4">Daily Tokens</th>
+                <th className="px-5 py-4">Joined</th>
+                <th className="px-5 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-slate-400">
+                    No users matching search criteria.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-chobee-navy-900 flex items-center gap-1.5">
-                        <span>{u.displayName}</span>
-                        {u.role === 'admin' && (
-                          <span title="Administrator">👑</span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u, e.target.value)}
-                        className={`text-xs font-bold rounded-lg px-2 py-1 border cursor-pointer focus:outline-none ${
-                          u.role === 'admin'
-                            ? 'bg-purple-100 text-purple-700 border-purple-300 font-black'
-                            : u.role === 'premium'
-                            ? 'bg-amber-100 text-amber-700 border-amber-300 font-black'
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                        title="Click to promote or change role"
-                      >
-                        <option value="free">🌱 Free (100 tokens/day)</option>
-                        <option value="premium">🌟 Premium (500 tokens/day)</option>
-                        <option value="admin">👑 Admin (Unlimited tokens)</option>
-                      </select>
-                    </td>
-                    <td className="py-3 px-3 text-[11px] text-slate-500 whitespace-nowrap">
-                      {new Date(u.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </td>
-                    <td className="py-3 px-3">
-                      {editingUserId === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={editTokenLimit}
-                            onChange={(e) => setEditTokenLimit(Number(e.target.value))}
-                            className="w-16 px-1.5 py-0.5 rounded border border-chobee-pink-400 font-bold text-xs"
-                          />
-                          <button
-                            onClick={() => handleSaveTokenLimit(u.id)}
-                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isUserAdmin = u.role === 'admin';
+                  const isEditing = editingUserId === u.id;
+                  const presence = u.presence;
+
+                  return (
+                    <tr
+                      key={u.id}
+                      onClick={() => setSelectedUserForDetails(u)}
+                      className="hover:bg-pink-50/30 transition-colors cursor-pointer"
+                    >
+                      {/* Name & Email */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-400 to-purple-400 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+                            {u.displayName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-chobee-navy-950 flex items-center gap-1.5">
+                              <span>{u.displayName}</span>
+                              {isUserAdmin && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 font-bold font-mono">
-                          <span>{u.role === 'admin' ? 'Unlimited (∞)' : u.dailyTokenLimit}</span>
-                          {u.role !== 'admin' && (
-                            <button
-                              onClick={() => {
-                                setEditingUserId(u.id);
-                                setEditTokenLimit(u.dailyTokenLimit);
-                              }}
-                              className="text-slate-400 hover:text-chobee-pink-600"
-                              title="Edit daily limit"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </button>
+                      </td>
+
+                      {/* Live Status */}
+                      <td className="px-5 py-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black">
+                          {presence.status === 'online' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>{presence.statusText}</span>
+                            </span>
+                          ) : presence.status === 'recent' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              <span className="w-2 h-2 rounded-full bg-amber-500" />
+                              <span>{presence.statusText}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              <span>{presence.statusText}</span>
+                            </span>
                           )}
                         </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 font-mono">
-                      {u.role === 'admin' ? (
-                        <span className="text-purple-600 font-bold text-[11px]">Unlimited</span>
-                      ) : u.todayUsage ? (
-                        <span className="font-bold">
-                          {u.todayUsage.remaining} left / {u.todayUsage.used} used
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
-                      {u.referralCode}
-                      {u.referredBy && <span className="block text-[10px] text-pink-500">ref: {u.referredBy}</span>}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => handleToggleDisable(u)}
-                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all ${
-                          u.isDisabled
-                            ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        {u.isDisabled ? 'Disabled' : 'Active'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </td>
+
+                      {/* Role */}
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u, e.target.value)}
+                          className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-chobee-navy-900"
+                        >
+                          <option value="free">Free</option>
+                          <option value="premium">Premium</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </td>
+
+                      {/* Daily Tokens */}
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              max="999999"
+                              value={editTokenLimit}
+                              onChange={(e) => setEditTokenLimit(Number(e.target.value))}
+                              className="w-20 px-2 py-1 bg-white border border-pink-300 rounded-lg text-xs font-mono font-bold"
+                            />
+                            <button
+                              onClick={() => handleSaveTokenLimit(u.id)}
+                              className="p-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600"
+                              title="Save"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-chobee-navy-900">
+                              {isUserAdmin ? 'Unlimited' : `${u.todayUsage?.remaining ?? u.dailyTokenLimit} / ${u.dailyTokenLimit}`}
+                            </span>
+                            {!isUserAdmin && (
+                              <button
+                                onClick={() => {
+                                  setEditingUserId(u.id);
+                                  setEditTokenLimit(u.dailyTokenLimit);
+                                }}
+                                className="text-slate-400 hover:text-chobee-navy-900"
+                                title="Edit token limit"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Joined Date */}
+                      <td className="px-5 py-4 text-slate-400 font-mono text-[11px]">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleDisable(u)}
+                            className={`p-1.5 rounded-xl border transition-all ${
+                              u.isDisabled
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100'
+                            }`}
+                            title={u.isDisabled ? 'Re-enable Account' : 'Disable Account'}
+                          >
+                            {u.isDisabled ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* USER DETAILS MODAL */}
+      {selectedUserForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-chobee-navy-950/40 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-panel w-full max-w-xl rounded-[32px] p-6 sm:p-8 border-2 border-white/90 shadow-glow-dual space-y-6 bg-white/95 relative max-h-[90vh] overflow-y-auto">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedUserForDetails(null)}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-chobee-navy-900"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Profile Header */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-400 to-purple-500 text-white text-xl font-black flex items-center justify-center shadow-md">
+                {selectedUserForDetails.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-chobee-navy-950 font-display flex items-center gap-2">
+                  <span>{selectedUserForDetails.displayName}</span>
+                  {selectedUserForDetails.role === 'admin' && <Crown className="w-4 h-4 text-amber-500 fill-amber-400" />}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">{selectedUserForDetails.email}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                    selectedUserForDetails.isDisabled
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {selectedUserForDetails.isDisabled ? 'Account Disabled' : 'Account Active'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-700">
+                    Plan: {selectedUserForDetails.plan || selectedUserForDetails.role}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Presence & Device Summary */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-500">Live Presence:</span>
+                <span className="font-extrabold text-chobee-navy-900">
+                  {computeUserPresence(
+                    selectedUserForDetails.id,
+                    presenceMap.get(selectedUserForDetails.id),
+                    selectedUserForDetails.lastSeenAt || selectedUserForDetails.lastLogin
+                  ).statusText}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-500">Last Login:</span>
+                <span className="font-mono text-slate-700">
+                  {selectedUserForDetails.lastLogin ? new Date(selectedUserForDetails.lastLogin).toLocaleString() : 'Never'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-500">Registered On:</span>
+                <span className="font-mono text-slate-700">
+                  {new Date(selectedUserForDetails.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-500">Referral Code:</span>
+                <span className="font-mono font-bold text-chobee-pink-600">
+                  {selectedUserForDetails.referralCode}
+                </span>
+              </div>
+            </div>
+
+            {/* Active Connected Sessions (Multi-Device) */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Laptop className="w-3.5 h-3.5" />
+                <span>Connected Devices & Sessions</span>
+              </h4>
+              {presenceMap.get(selectedUserForDetails.id)?.length ? (
+                <div className="space-y-2">
+                  {presenceMap.get(selectedUserForDetails.id)!.map((s, idx) => (
+                    <div
+                      key={s.sessionId || idx}
+                      className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {s.deviceType === 'Mobile' ? (
+                          <Smartphone className="w-4 h-4 text-emerald-600" />
+                        ) : s.deviceType === 'Tablet' ? (
+                          <Tablet className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <Laptop className="w-4 h-4 text-emerald-600" />
+                        )}
+                        <div>
+                          <p className="font-bold text-emerald-950">{s.browserInfo}</p>
+                          <p className="text-[10px] text-emerald-600 font-mono">Session ID: {s.sessionId}</p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-200/70 text-emerald-800 text-[10px] font-black">
+                        🟢 Active Now
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                  No devices currently active. User will show online here when they open the site on phone, laptop, or PC.
+                </p>
+              )}
+            </div>
+
+            {/* Token Quota Editor */}
+            <div className="p-4 rounded-2xl bg-pink-50/60 border border-pink-200/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-chobee-navy-950">Daily AI Study Credits</span>
+                <span className="text-xs font-mono font-bold text-chobee-pink-600">
+                  {selectedUserForDetails.role === 'admin' ? 'Unlimited' : `${selectedUserForDetails.dailyTokenLimit} credits/day`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                {[100, 250, 500, 1000].map((amt) => (
+                  <button
+                    key={amt}
+                    onClick={() => {
+                      setEditTokenLimit(amt);
+                      handleSaveTokenLimit(selectedUserForDetails.id);
+                    }}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all ${
+                      selectedUserForDetails.dailyTokenLimit === amt
+                        ? 'bg-chobee-pink-500 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:bg-pink-100 border border-pink-200'
+                    }`}
+                  >
+                    {amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setSelectedUserForDetails(null)}
+                className="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => handleToggleDisable(selectedUserForDetails)}
+                className={`px-5 py-2.5 rounded-2xl text-xs font-bold text-white shadow-xs ${
+                  selectedUserForDetails.isDisabled
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                {selectedUserForDetails.isDisabled ? 'Re-enable Account' : 'Disable Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

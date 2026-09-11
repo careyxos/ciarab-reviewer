@@ -21,7 +21,11 @@ import {
   saveStoredStats, 
   getStoredAchievements, 
   saveStoredAchievements,
-  parseSharedSetFromUrl
+  parseSharedSetFromUrl,
+  fetchCloudStudySets,
+  saveStudySetToCloud,
+  deleteStudySetFromCloud,
+  subscribeToCloudStudySets
 } from './services/storageService';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -95,12 +99,27 @@ export const BIOME_THEMES: Record<BiomeTheme, { id: BiomeTheme; name: string; ic
 };
 
 export function App() {
-  const { isLoggedIn, isAdmin, isAuthModalOpen, closeAuthModal, authModalMode } = useAuth();
+  const { user, isLoggedIn, isAdmin, isAuthModalOpen, closeAuthModal, authModalMode } = useAuth();
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin'>('dashboard');
   const [stats, setStats] = useState<UserStats>(getStoredStats());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Check URL pathname or query for /admin route
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      if (path === '/admin' || params.get('tab') === 'admin') {
+        if (isAdmin) {
+          setActiveTab('admin');
+        } else {
+          setActiveTab('dashboard');
+        }
+      }
+    }
+  }, [isAdmin]);
 
   // Aesthetic Biome Wallpaper State & Effects
   const [currentBiome, setCurrentBiome] = useState<BiomeTheme>(() => {
@@ -214,6 +233,27 @@ export function App() {
     }
   }, []);
 
+  // Cloud Study Sets Synchronization (Fetch per user & listen to Realtime changes across devices)
+  useEffect(() => {
+    if (user?.id) {
+      fetchCloudStudySets(user.id).then((cloudSets) => {
+        if (cloudSets && cloudSets.length > 0) {
+          setStudySets(cloudSets);
+          setSelectedSet((prev) => (prev ? cloudSets.find((s) => s.id === prev.id) || cloudSets[0] : cloudSets[0]));
+        }
+      });
+
+      const unsubscribe = subscribeToCloudStudySets(user.id, (freshSets) => {
+        setStudySets(freshSets);
+        setSelectedSet((prev) => (prev ? freshSets.find((s) => s.id === prev.id) || freshSets[0] : freshSets[0]));
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [user?.id]);
+
   // Periodic random encouraging love notes from Baby Bear
   useEffect(() => {
     const quotes = ROMANTIC_DATA.secretQuotes;
@@ -229,7 +269,11 @@ export function App() {
   const handleStudySetCreated = (newSet: StudySet) => {
     const updated = [newSet, ...studySets];
     setStudySets(updated);
-    saveStoredStudySets(updated);
+    if (user?.id) {
+      saveStudySetToCloud(user.id, newSet);
+    } else {
+      saveStoredStudySets(updated);
+    }
     setSelectedSet(newSet);
     setActiveTab('flashcards');
 
@@ -243,14 +287,22 @@ export function App() {
   const handleUpdateSet = (updatedSet: StudySet) => {
     const updated = studySets.map((s) => (s.id === updatedSet.id ? updatedSet : s));
     setStudySets(updated);
-    saveStoredStudySets(updated);
+    if (user?.id) {
+      saveStudySetToCloud(user.id, updatedSet);
+    } else {
+      saveStoredStudySets(updated);
+    }
     setSelectedSet(updatedSet);
   };
 
   const handleDeleteSet = (setId: string) => {
     const updated = studySets.filter((s) => s.id !== setId);
     setStudySets(updated);
-    saveStoredStudySets(updated);
+    if (user?.id) {
+      deleteStudySetFromCloud(user.id, setId);
+    } else {
+      saveStoredStudySets(updated);
+    }
     if (selectedSet?.id === setId) {
       setSelectedSet(updated[0] || null);
       setActiveTab('dashboard');
@@ -258,11 +310,16 @@ export function App() {
   };
 
   const handleToggleFavorite = (setId: string) => {
-    const updated = studySets.map((s) =>
-      s.id === setId ? { ...s, isFavorite: !s.isFavorite } : s
-    );
+    const target = studySets.find((s) => s.id === setId);
+    if (!target) return;
+    const updatedTarget = { ...target, isFavorite: !target.isFavorite };
+    const updated = studySets.map((s) => (s.id === setId ? updatedTarget : s));
     setStudySets(updated);
-    saveStoredStudySets(updated);
+    if (user?.id) {
+      saveStudySetToCloud(user.id, updatedTarget);
+    } else {
+      saveStoredStudySets(updated);
+    }
   };
 
   const handleSelectSet = (set: StudySet, mode: 'flashcards' | 'quiz' | 'summary') => {

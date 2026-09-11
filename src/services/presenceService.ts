@@ -1,0 +1,257 @@
+import { getSupabase, getDeviceType, getBrowserInfo, getOrCreateSessionId } from './supabaseClient';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+export interface PresenceSession {
+  userId: string;
+  email: string;
+  displayName: string;
+  deviceType: string;
+  browserInfo: string;
+  sessionId: string;
+  onlineAt: string;
+  lastHeartbeat?: string;
+}
+
+export type UserPresenceStatus = 'online' | 'recent' | 'offline';
+
+export interface AggregatedUserPresence {
+  userId: string;
+  status: UserPresenceStatus;
+  statusText: string;
+  activeSessionsCount: number;
+  devices: Array<{
+    sessionId: string;
+    deviceType: string;
+    browserInfo: string;
+    onlineAt: string;
+  }>;
+  lastSeenAt?: string;
+}
+
+let activeChannel: RealtimeChannel | null = null;
+let heartbeatInterval: any = null;
+
+// ==============================================================================
+// CLIENT-SIDE PRESENCE TRACKING (Per Tab / Device)
+// ==============================================================================
+
+export const startPresenceTracking = (user: { id: string; email: string; displayName: string }) => {
+  const supabase = getSupabase();
+  if (!supabase || !user?.id) return;
+
+  // Stop any existing tracking
+  stopPresenceTracking();
+
+  const sessionId = getOrCreateSessionId();
+  const deviceType = getDeviceType();
+  const browserInfo = getBrowserInfo();
+
+  const channel = supabase.channel('chobee-presence-room', {
+    config: {
+      presence: {
+        key: user.id,
+      },
+    },
+  });
+
+  const sessionPayload: PresenceSession = {
+    userId: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    deviceType,
+    browserInfo,
+    sessionId,
+    onlineAt: new Date().toISOString(),
+  };
+
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      // Sync handled by listener
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track(sessionPayload);
+      }
+    });
+
+  activeChannel = channel;
+
+  // Database presence heartbeat function
+  const sendDatabaseHeartbeat = async () => {
+    try {
+      const client = getSupabase();
+      if (!client) return;
+
+      // Upsert into user_sessions table
+      await client.from('user_sessions').upsert(
+        {
+          user_id: user.id,
+          session_id: sessionId,
+          device_type: deviceType,
+          browser_info: browserInfo,
+          is_active: true,
+          last_heartbeat: new Date().toISOString(),
+        },
+        { onConflict: 'user_id, session_id' }
+      );
+
+      // Update profiles last_seen_at
+      await client
+        .from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', user.id);
+    } catch (err) {
+      // Heartbeat silent fallback
+    }
+  };
+
+  // Immediate initial heartbeat
+  sendDatabaseHeartbeat();
+
+  // Periodic heartbeat every 25 seconds
+  heartbeatInterval = setInterval(sendDatabaseHeartbeat, 25000);
+
+  // Clean up on tab close / reload
+  const handleUnload = () => {
+    stopPresenceTracking();
+  };
+  window.addEventListener('beforeunload', handleUnload);
+};
+
+export const stopPresenceTracking = () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+
+  if (activeChannel) {
+    try {
+      activeChannel.untrack();
+      activeChannel.unsubscribe();
+    } catch (e) {}
+    activeChannel = null;
+  }
+};
+
+// ==============================================================================
+// ADMIN PRESENCE SUBSCRIBER (Real-time live multi-device monitoring)
+// ==============================================================================
+
+export const subscribeToAdminPresence = (
+  onPresenceUpdate: (presenceMap: Map<string, PresenceSession[]>) => void
+): (() => void) => {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+
+  const channel = supabase.channel('chobee-admin-presence-listener');
+
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<PresenceSession>();
+      const presenceMap = new Map<string, PresenceSession[]>();
+
+      Object.entries(state).forEach(([userId, sessions]) => {
+        if (Array.isArray(sessions) && sessions.length > 0) {
+          presenceMap.set(userId, sessions);
+        }
+      });
+
+      onPresenceUpdate(presenceMap);
+    })
+    .subscribe();
+
+  return () => {
+    try {
+      channel.unsubscribe();
+    } catch (e) {}
+  };
+};
+
+// ==============================================================================
+// PRESENCE STATUS CALCULATOR
+// ==============================================================================
+
+export const computeUserPresence = (
+  userId: string,
+  liveSessions: PresenceSession[] | undefined,
+  lastSeenAt?: string
+): AggregatedUserPresence => {
+  const activeSessions = liveSessions || [];
+  const hasActiveSession = activeSessions.length > 0;
+
+  if (hasActiveSession) {
+    const sessionCount = activeSessions.length;
+    return {
+      userId,
+      status: 'online',
+      statusText: sessionCount > 1 ? `Online (${sessionCount} devices)` : 'Online',
+      activeSessionsCount: sessionCount,
+      devices: activeSessions.map((s) => ({
+        sessionId: s.sessionId,
+        deviceType: s.deviceType || 'Desktop',
+        browserInfo: s.browserInfo || 'Browser',
+        onlineAt: s.onlineAt,
+      })),
+      lastSeenAt: new Date().toISOString(),
+    };
+  }
+
+  // Not currently online: check last_seen_at
+  if (lastSeenAt) {
+    const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMinutes <= 5) {
+      return {
+        userId,
+        status: 'recent',
+        statusText: diffMinutes <= 1 ? 'Active just now' : `Active ${diffMinutes}m ago`,
+        activeSessionsCount: 0,
+        devices: [],
+        lastSeenAt,
+      };
+    }
+
+    if (diffMinutes < 60) {
+      return {
+        userId,
+        status: 'offline',
+        statusText: `Offline ${diffMinutes}m ago`,
+        activeSessionsCount: 0,
+        devices: [],
+        lastSeenAt,
+      };
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) {
+      return {
+        userId,
+        status: 'offline',
+        statusText: `Offline ${diffHours}h ago`,
+        activeSessionsCount: 0,
+        devices: [],
+        lastSeenAt,
+      };
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+    return {
+      userId,
+      status: 'offline',
+      statusText: `Offline ${diffDays}d ago`,
+      activeSessionsCount: 0,
+      devices: [],
+      lastSeenAt,
+    };
+  }
+
+  return {
+    userId,
+    status: 'offline',
+    statusText: 'Offline',
+    activeSessionsCount: 0,
+    devices: [],
+    lastSeenAt,
+  };
+};

@@ -310,3 +310,152 @@ export function parseSharedSetFromUrl(): StudySet | null {
     return null;
   }
 }
+
+// ==============================================================================
+// CLOUD STUDY MATERIALS SYNCHRONIZATION (Supabase + Centralized API)
+// ==============================================================================
+import { getSupabase, isSupabaseConfigured } from './supabaseClient';
+import { apiRequest } from './apiClient';
+
+export async function fetchCloudStudySets(userId: string): Promise<StudySet[]> {
+  const supabase = getSupabase();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('study_materials')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const sets: StudySet[] = data.map((row: any) => ({
+          ...row.data,
+          id: row.id,
+          title: row.title || row.data?.title,
+          category: row.category || row.data?.category,
+          isFavorite: row.is_favorite ?? row.data?.isFavorite,
+        }));
+        saveStoredStudySets(sets);
+        return sets;
+      }
+    } catch (err) {
+      console.warn('Supabase fetch materials fallback:', err);
+    }
+  }
+
+  // Serverless / API fallback
+  try {
+    const res = await apiRequest<{ materials: any[] }>('/api/materials');
+    if (res?.materials && Array.isArray(res.materials) && res.materials.length > 0) {
+      const sets: StudySet[] = res.materials.map((m: any) => ({
+        ...m.data,
+        id: m.id,
+        title: m.title || m.data?.title,
+        category: m.category || m.data?.category,
+        isFavorite: m.isFavorite ?? m.data?.isFavorite,
+      }));
+      saveStoredStudySets(sets);
+      return sets;
+    }
+  } catch (err) {
+    // Silent fallback to local cache
+  }
+
+  // If no cloud data found yet, return cached or initial study sets
+  return getStoredStudySets();
+}
+
+export async function saveStudySetToCloud(userId: string, set: StudySet): Promise<void> {
+  // Always save locally for instant responsiveness
+  const current = getStoredStudySets();
+  const exists = current.some((s) => s.id === set.id);
+  const updated = exists ? current.map((s) => (s.id === set.id ? set : s)) : [set, ...current];
+  saveStoredStudySets(updated);
+
+  const supabase = getSupabase();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('study_materials').upsert(
+        {
+          id: set.id,
+          user_id: userId,
+          title: set.title,
+          category: set.category || 'General',
+          data: set,
+          is_favorite: Boolean(set.isFavorite),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+      return;
+    } catch (err) {
+      console.warn('Supabase save material fallback:', err);
+    }
+  }
+
+  // Serverless fallback
+  try {
+    await apiRequest('/api/materials', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: set.id,
+        title: set.title,
+        category: set.category,
+        data: set,
+      }),
+    });
+  } catch (e) {}
+}
+
+export async function deleteStudySetFromCloud(userId: string, setId: string): Promise<void> {
+  const current = getStoredStudySets().filter((s) => s.id !== setId);
+  saveStoredStudySets(current);
+
+  const supabase = getSupabase();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('study_materials').delete().eq('id', setId).eq('user_id', userId);
+      return;
+    } catch (err) {
+      console.warn('Supabase delete material fallback:', err);
+    }
+  }
+
+  try {
+    await apiRequest('/api/materials', {
+      method: 'DELETE',
+      body: JSON.stringify({ id: setId }),
+    });
+  } catch (e) {}
+}
+
+export function subscribeToCloudStudySets(
+  userId: string,
+  onUpdate: (sets: StudySet[]) => void
+): (() => void) {
+  const supabase = getSupabase();
+  if (!isSupabaseConfigured() || !supabase) return () => {};
+
+  const channel = supabase
+    .channel(`materials-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'study_materials',
+        filter: `user_id=eq.${userId}`,
+      },
+      async () => {
+        const freshSets = await fetchCloudStudySets(userId);
+        onUpdate(freshSets);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    try {
+      channel.unsubscribe();
+    } catch (e) {}
+  };
+}
