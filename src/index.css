@@ -1,0 +1,422 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-chobee-navy-900;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+}
+
+/* 60 FPS Hardware Acceleration & iOS Physics */
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+/* 3D Flip Card Styles */
+.perspective-1000 {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Apple iOS Spring Transitions */
+.ios-spring {
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ios-spring-bounce {
+  transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Sticky Note Washi Tape Stationery Styles (Matching Reference Image 2) */
+.stationery-card {
+  background-color: #fde8ee;
+  background-image: 
+    repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      rgba(244, 114, 182, 0.22) 32px
+    );
+  box-shadow: 
+    0 12px 30px -4px rgba(244, 114, 182, 0.25),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    inset 0 0 0 1px rgba(249, 168, 212, 0.55);
+}
+
+/* Washi Tape Masking Stickers */
+.washi-tape-left {
+  position: absolute;
+  top: -4px;
+  left: 20px;
+  width: 90px;
+  height: 28px;
+  background: rgba(245, 235, 212, 0.84);
+  transform: rotate(-10deg);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  border-left: 2px dashed rgba(220, 205, 175, 0.6);
+  border-right: 2px dashed rgba(220, 205, 175, 0.6);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.washi-tape-right {
+  position: absolute;
+  top: -4px;
+  right: 20px;
+  width: 90px;
+  height: 28px;
+  background: rgba(245, 235, 212, 0.84);
+  transform: rotate(10deg);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  border-left: 2px dashed rgba(220, 205, 175, 0.6);
+  border-right: 2px dashed rgba(220, 205, 175, 0.6);
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.glass-card-pink {
+  background: linear-gradient(135deg, rgba(253, 242, 248, 0.35) 0%, rgba(255, 255, 255, 0.20) 100%);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.glass-card-blue {
+  background: linear-gradient(135deg, rgba(240, 249, 255, 0.35) 0%, rgba(255, 255, 255, 0.20) 100%);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+/* Custom Soft Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(243, 244, 246, 0.6);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 114, 182, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 114, 182, 0.7);
+}
+
+/* iPadOS & iOS App Library Translucent Liquid Frosted Glass (Identical to User Reference) */
+.ipados-widget {
+  border-radius: 34px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.14) 100%);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border: 1.5px solid rgba(255, 255, 255, 0.70);
+  box-shadow: 
+    0 16px 36px -6px rgba(0, 0, 0, 0.10),
+    0 6px 14px -2px rgba(0, 0, 0, 0.05),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.85),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.25);
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ipados-widget:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.18) 100%);
+  border-color: rgba(255, 255, 255, 0.90);
+  box-shadow: 
+    0 22px 42px -6px rgba(0, 0, 0, 0.13),
+    0 8px 18px -2px rgba(0, 0, 0, 0.07),
+    inset 0 2px 3px rgba(255, 255, 255, 0.95);
+}
+
+.ipados-widget-pink {
+  border-radius: 34px;
+  background: linear-gradient(135deg, rgba(255, 235, 245, 0.35) 0%, rgba(255, 255, 255, 0.18) 100%);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 
+    0 16px 36px -6px rgba(244, 114, 182, 0.15),
+    0 6px 14px -2px rgba(0, 0, 0, 0.05),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.90),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.25);
+}
+
+/* Dedicated iOS App Library Squircle & Glass Classes */
+.ios-glass-container {
+  border-radius: 36px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.14) 100%);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border: 1.5px solid rgba(255, 255, 255, 0.70);
+  box-shadow: 
+    0 20px 40px -10px rgba(0, 0, 0, 0.10),
+    0 6px 16px -2px rgba(0, 0, 0, 0.05),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.85),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.25);
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ios-glass-container:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.18) 100%);
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow: 
+    0 24px 48px -8px rgba(0, 0, 0, 0.14),
+    0 8px 20px -2px rgba(0, 0, 0, 0.08),
+    inset 0 2px 3px rgba(255, 255, 255, 0.95);
+}
+
+.ios-glass-tile {
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0.22) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1.2px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 
+    0 6px 16px -3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.90);
+  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ios-glass-tile:hover {
+  transform: scale(1.035);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.30) 100%);
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 10px 22px -3px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.98);
+}
+
+.ios-glass-tile:active {
+  transform: scale(0.96);
+}
+
+.ios-glass-subtile {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.ios-glass-pill {
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0.16) 100%);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border: 1.5px solid rgba(255, 255, 255, 0.70);
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.85);
+  transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ios-glass-pill:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.22) 100%);
+  border-color: rgba(255, 255, 255, 0.90);
+}
+
+.ios-glass-label {
+  color: #0f172a;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Vinyl Turntable Animation */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+.paused-spin {
+  animation-play-state: paused;
+}
+
+/* Gentle Floating Animation */
+@keyframes float-melody {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.5deg);
+  }
+}
+
+.animate-float-melody {
+  animation: float-melody 3.5s ease-in-out infinite;
+}
+
+/* iPadOS Translucent Floating Glass Dock */
+.ipados-dock {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 20px 50px -10px rgba(244, 114, 182, 0.25),
+    0 8px 24px -4px rgba(15, 23, 42, 0.08),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
+}
+
+/* iOS Squircle App Icon */
+.ios-squircle {
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ios-squircle:active {
+  transform: scale(0.9);
+}
+
+/* Aesthetic Biome & Lace Enhancements */
+.aesthetic-lace-frame {
+  box-shadow: 
+    0 12px 36px -4px rgba(244, 114, 182, 0.22),
+    0 4px 12px -2px rgba(15, 23, 42, 0.05),
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.95);
+  border-radius: 26px;
+}
+
+.aesthetic-lace-pattern {
+  background-image: radial-gradient(circle at 10px 0, rgba(255, 255, 255, 0.9) 6px, transparent 7px);
+  background-size: 20px 10px;
+  background-repeat: repeat-x;
+}
+
+/* ========================================================================= */
+/* Gizmo.ai Satisfying Juicy Micro-Interactions & Animations                 */
+/* ========================================================================= */
+
+@keyframes gizmo-bounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06); }
+  65% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.animate-gizmo-bounce {
+  animation: gizmo-bounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes gizmo-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px) rotate(-1deg); }
+  40% { transform: translateX(8px) rotate(1deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.animate-gizmo-shake {
+  animation: gizmo-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes float-up-xp {
+  0% { opacity: 0; transform: translateY(10px) scale(0.7); }
+  20% { opacity: 1; transform: translateY(-8px) scale(1.2); }
+  80% { opacity: 1; transform: translateY(-36px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-56px) scale(0.9); }
+}
+
+.animate-float-xp {
+  animation: float-up-xp 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes streak-flame-dance {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.7)); 
+  }
+  50% { 
+    transform: scale(1.25) rotate(6deg); 
+    filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.9)); 
+  }
+}
+
+.animate-streak-flame {
+  animation: streak-flame-dance 0.75s ease-in-out infinite;
+}
+
+@keyframes pop-card-in {
+  0% { opacity: 0; transform: scale(0.94) translateY(12px); }
+  70% { transform: scale(1.01) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-pop-card-in {
+  animation: pop-card-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 3D Physical Flashcard Deck Stack Layers */
+.deck-stack-shadow {
+  position: relative;
+}
+
+.deck-stack-shadow::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 14px;
+  right: 14px;
+  height: 18px;
+  background: rgba(251, 207, 232, 0.65);
+  border: 1.5px solid rgba(244, 114, 182, 0.5);
+  border-radius: 32px;
+  z-index: -1;
+  box-shadow: 0 4px 12px rgba(244, 114, 182, 0.15);
+  transition: all 0.3s ease;
+}
+
+.deck-stack-shadow::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 28px;
+  right: 28px;
+  height: 18px;
+  background: rgba(253, 231, 243, 0.50);
+  border: 1.5px solid rgba(244, 114, 182, 0.35);
+  border-radius: 32px;
+  z-index: -2;
+  box-shadow: 0 6px 16px rgba(244, 114, 182, 0.12);
+  transition: all 0.3s ease;
+}
+
