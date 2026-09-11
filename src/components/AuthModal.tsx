@@ -158,7 +158,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {errorMessage && (
           <div className="mb-4 p-3 rounded-2xl bg-red-50/90 border border-red-200 text-xs text-red-600 flex items-start gap-2 animate-fadeIn">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-            <span className="font-semibold">{errorMessage}</span>
+            <div className="font-semibold leading-relaxed">
+              <span>{errorMessage}</span>
+              {errorMessage.includes('Sign Up') && mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setErrorMessage(null);
+                  }}
+                  className="block mt-1 underline text-pink-600 font-bold hover:text-pink-700"
+                >
+                  👉 Click here to create your account now
+                </button>
+              )}
+            </div>
           </div>
         )}
 

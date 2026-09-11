@@ -138,13 +138,41 @@ export const handler: Handler = async (event: HandlerEvent) => {
         };
       }
 
-      const user = await getUserByEmail(email);
+      const envAdmin = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
+      const ADMIN_EMAILS = [
+        'careysison21@gmail.com',
+        'carey@chobee.app',
+        ...(envAdmin ? envAdmin.toLowerCase().split(',').map((e) => e.trim()) : [])
+      ];
+      const isWhitelistedAdmin = ADMIN_EMAILS.includes(email.trim().toLowerCase());
+
+      let user = await getUserByEmail(email);
       if (!user) {
-        return {
-          statusCode: 401,
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ error: 'Invalid email or password.' }),
-        };
+        // If whitelisted owner/admin attempts login, auto-create their account immediately with the password provided!
+        if (isWhitelistedAdmin) {
+          const passwordHash = await hashPassword(password);
+          const uniqueRefCode = generateReferralCode();
+          const now = new Date().toISOString();
+          const newAdminUser: User = {
+            id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            email: email.trim().toLowerCase(),
+            password_hash: passwordHash,
+            display_name: email.split('@')[0],
+            role: 'admin',
+            daily_token_limit: DEFAULT_ROLE_LIMITS.admin,
+            referral_code: uniqueRefCode,
+            created_at: now,
+            last_login: now,
+            is_disabled: false,
+          };
+          user = await createUser(newAdminUser);
+        } else {
+          return {
+            statusCode: 401,
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ error: 'Account not found. Please click "Sign Up (Free)" tab above to create your account first!' }),
+          };
+        }
       }
 
       if (user.is_disabled) {
@@ -157,11 +185,18 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
       const matches = await comparePassword(password, user.password_hash);
       if (!matches) {
-        return {
-          statusCode: 401,
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ error: 'Invalid email or password.' }),
-        };
+        // If it is the whitelisted admin owner, update password directly so owner is never locked out
+        if (isWhitelistedAdmin) {
+          const newHash = await hashPassword(password);
+          await updateUser(user.id, { password_hash: newHash, role: 'admin', daily_token_limit: DEFAULT_ROLE_LIMITS.admin });
+          user.role = 'admin';
+        } else {
+          return {
+            statusCode: 401,
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ error: 'Incorrect password. Click "Forgot password?" to reset it.' }),
+          };
+        }
       }
 
       await updateUser(user.id, { last_login: new Date().toISOString() });
