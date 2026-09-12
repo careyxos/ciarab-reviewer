@@ -43,23 +43,22 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     
-    let extractedPages: string[] = [];
-    const numPages = Math.min(pdf.numPages, 30); // inspect up to 30 pages
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      const pageLines = textContent.items
-        .map((item: any) => (item.str || '').trim())
-        .filter((str: string) => str.length > 0 && !isGarbagePdfLine(str));
-      
-      if (pageLines.length > 0) {
-        extractedPages.push(pageLines.join(' '));
+    const numPages = Math.min(pdf.numPages, 20); // inspect up to 20 high-yield pages
+    const pagePromises = Array.from({ length: numPages }, async (_, i) => {
+      try {
+        const page = await pdf.getPage(i + 1);
+        const textContent = await page.getTextContent();
+        const pageLines = textContent.items
+          .map((item: any) => (item.str || '').trim())
+          .filter((str: string) => str.length > 0 && !isGarbagePdfLine(str));
+        return pageLines.join(' ');
+      } catch (e) {
+        return '';
       }
-    }
+    });
 
-    const cleanText = extractedPages.join('\n\n').trim();
+    const results = await Promise.all(pagePromises);
+    const cleanText = results.filter((t) => t.length > 0).join('\n\n').trim();
 
     // Verify that the extracted text is real language, not binary
     if (cleanText.length > 40 && !cleanText.includes('FlateDecode')) {

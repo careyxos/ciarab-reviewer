@@ -12,10 +12,10 @@ export interface ServerGenerationOptions {
 }
 
 const CANDIDATE_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
   'gemini-flash-latest',
-  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
 ];
 
 export async function callServerGemini(

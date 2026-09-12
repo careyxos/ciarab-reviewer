@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   ArrowLeft, 
@@ -69,18 +69,25 @@ export const QuizView: React.FC<QuizViewProps> = ({
   }[]>([]);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
 
+  const prevQuizSetIdRef = useRef(studySet.id);
+  const prevQuizSizeRef = useRef(quizSize);
+
   useEffect(() => {
-    const prepared = prepareQuizPool(studySet, quizSize);
-    setQuestions(prepared);
-    setCurrentIndex(0);
-    setSelectedOption(null);
-    setTypedAnswer('');
-    setIsAnswerSubmitted(false);
-    setStreak(0);
-    setUserAnswers([]);
-    setIsQuizCompleted(false);
-    setFloatingXp(null);
-  }, [studySet, quizSize]);
+    if (prevQuizSetIdRef.current !== studySet.id || prevQuizSizeRef.current !== quizSize || questions.length === 0) {
+      prevQuizSetIdRef.current = studySet.id;
+      prevQuizSizeRef.current = quizSize;
+      const prepared = prepareQuizPool(studySet, quizSize);
+      setQuestions(prepared);
+      setCurrentIndex(0);
+      setSelectedOption(null);
+      setTypedAnswer('');
+      setIsAnswerSubmitted(false);
+      setStreak(0);
+      setUserAnswers([]);
+      setIsQuizCompleted(false);
+      setFloatingXp(null);
+    }
+  }, [studySet.id, quizSize, questions.length]);
 
   const currentQ = questions[currentIndex];
 

@@ -410,10 +410,10 @@ function shuffleArray<T>(array: T[]): T[] {
 // Optional Direct Gemini API Integration
 async function callGeminiAPI(content: string, options: GenerationOptions) {
   const candidateModels = [
-    'gemini-3.6-flash',
-    'gemini-2.5-flash',
+    'gemini-flash-lite-latest',
     'gemini-flash-latest',
-    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.5-flash',
   ];
 
   const prompt = `You are a warm, supportive study assistant named "Baby Bear Chobee" creating high-yield study materials for "Mayor Cia".

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   ArrowLeft, 
   RotateCw, 
@@ -58,16 +58,28 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
   const [sessionCompleted, setSessionCompleted] = useState(false);
   const [floatingXp, setFloatingXp] = useState<{ id: number; text: string } | null>(null);
 
+  const prevSetIdRef = useRef(studySet.id);
+
   useEffect(() => {
-    const list = (studySet.flashcards || []).map((c, i) => sanitizeCard(c, i));
-    setCards(list);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setShowHint(false);
-    setSessionCompleted(false);
-    setFloatingXp(null);
-    stopSpeaking();
-  }, [studySet]);
+    // Only reset state if the active study set changed (different ID)
+    if (prevSetIdRef.current !== studySet.id) {
+      prevSetIdRef.current = studySet.id;
+      const list = (studySet.flashcards || []).map((c, i) => sanitizeCard(c, i));
+      setCards(list);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+      setShowHint(false);
+      setSessionCompleted(false);
+      setFloatingXp(null);
+      stopSpeaking();
+    } else if (cards.length === 0 && (studySet.flashcards || []).length > 0) {
+      const list = (studySet.flashcards || []).map((c, i) => sanitizeCard(c, i));
+      setCards(list);
+    } else if (studySet.flashcards && studySet.flashcards.length !== cards.length) {
+      const list = studySet.flashcards.map((c, i) => sanitizeCard(c, i));
+      setCards(list);
+    }
+  }, [studySet.id, studySet.flashcards, cards.length]);
 
   // Clean up speech synthesis whenever card index changes, flips, or unmounts
   useEffect(() => {
@@ -76,7 +88,8 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     };
   }, [currentIndex, isFlipped]);
 
-  const currentCard = sanitizeCard(cards[currentIndex] || cards[0], currentIndex);
+  const safeIndex = cards.length > 0 ? Math.min(Math.max(0, currentIndex), cards.length - 1) : 0;
+  const currentCard = cards[safeIndex] ? sanitizeCard(cards[safeIndex], safeIndex) : null;
 
   const handleFlip = useCallback(() => {
     stopSpeaking();
@@ -88,26 +101,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     stopSpeaking();
     if (soundEnabled) playCardSwoosh();
 
-    // Mark card as reviewed and update repetitions
-    if (currentCard) {
-      const updatedCard = {
-        ...currentCard,
-        repetitions: (currentCard.repetitions || 0) + 1,
-        lastReviewed: new Date().toISOString(),
-      };
-      const newCards = [...cards];
-      newCards[currentIndex] = updatedCard;
-      setCards(newCards);
-
-      const updatedSet: StudySet = {
-        ...studySet,
-        flashcards: newCards,
-        lastStudied: new Date().toISOString(),
-      };
-      onUpdateSet(updatedSet);
-    }
-
-    if (currentIndex < cards.length - 1) {
+    if (safeIndex < cards.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsFlipped(false);
       setShowHint(false);
@@ -115,19 +109,24 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
       setSessionCompleted(true);
       if (soundEnabled) playCelebrationSound();
       fireLightCelebration();
+      onUpdateSet({
+        ...studySet,
+        flashcards: cards,
+        lastStudied: new Date().toISOString(),
+      });
     }
-  }, [currentIndex, cards, currentCard, soundEnabled, studySet, onUpdateSet]);
+  }, [safeIndex, cards, soundEnabled, studySet, onUpdateSet]);
 
   const handlePrev = useCallback(() => {
     stopSpeaking();
-    if (currentIndex > 0) {
+    if (safeIndex > 0) {
       if (soundEnabled) playCardSwoosh();
-      setCurrentIndex((prev) => prev - 1);
+      setCurrentIndex((prev) => Math.max(0, prev - 1));
       setIsFlipped(false);
       setShowHint(false);
       setSessionCompleted(false);
     }
-  }, [currentIndex, soundEnabled]);
+  }, [safeIndex, soundEnabled]);
 
   const handleRating = useCallback((rating: CardRating) => {
     if (!currentCard) return;
@@ -153,7 +152,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     }
 
     const newCards = [...cards];
-    newCards[currentIndex] = updatedCard;
+    newCards[safeIndex] = updatedCard;
     setCards(newCards);
 
     const updatedSet: StudySet = {
@@ -163,7 +162,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     };
     onUpdateSet(updatedSet);
 
-    if (currentIndex < cards.length - 1) {
+    if (safeIndex < cards.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsFlipped(false);
       setShowHint(false);
@@ -172,16 +171,23 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
       if (soundEnabled) playCelebrationSound();
       fireLightCelebration();
     }
-  }, [currentCard, cards, currentIndex, studySet, onUpdateSet, onCardMasteredReward, soundEnabled]);
+  }, [currentCard, cards, safeIndex, studySet, onUpdateSet, onCardMasteredReward, soundEnabled]);
 
-  // Keyboard navigation shortcuts (Space = Flip, ArrowLeft = Prev, ArrowRight = Next, 1-4 = Ratings)
+  // Keyboard navigation shortcuts (Space = Flip, ArrowLeft = Prev, ArrowRight/Enter = Next, 1-4 = Ratings)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (showAiModal) return;
+
+      // Don't intercept if user is typing in an input, textarea, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
       if (e.code === 'Space') {
         e.preventDefault();
         handleFlip();
-      } else if (e.code === 'ArrowRight') {
+      } else if (e.code === 'ArrowRight' || e.code === 'Enter') {
         e.preventDefault();
         handleNext();
       } else if (e.code === 'ArrowLeft') {
@@ -231,7 +237,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     if (soundEnabled) playHapticTap();
     const updatedCard = { ...currentCard, isFavorite: !currentCard.isFavorite };
     const newCards = [...cards];
-    newCards[currentIndex] = updatedCard;
+    newCards[safeIndex] = updatedCard;
     setCards(newCards);
     onUpdateSet({ ...studySet, flashcards: newCards });
   };
@@ -257,7 +263,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
   }
 
   const masteredInSession = cards.filter((c) => c.state === 'mastered').length;
-  const progressPercent = Math.round(((currentIndex + 1) / cards.length) * 100);
+  const progressPercent = Math.round(((safeIndex + 1) / cards.length) * 100);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -315,7 +321,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
         <div className="flex items-center justify-between text-xs font-bold text-chobee-navy-700">
           <span className="flex items-center gap-2">
             <span className="bg-white px-2.5 py-1 rounded-lg border border-pink-200 shadow-xs font-display">
-              Card {currentIndex + 1} of {cards.length}
+              Card {safeIndex + 1} of {cards.length}
             </span>
             <span className="text-[11px] text-chobee-pink-600 font-semibold">
               ({masteredInSession} mastered)
@@ -350,7 +356,10 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
 
       {/* 3D FLASHCARD: AUTHENTIC WIDE PINK LINED STATIONERY (NOT CUT OFF) */}
       {!sessionCompleted ? (
-        <div className="relative perspective-1000 w-full max-w-4xl mx-auto min-h-[440px] sm:min-h-[480px] md:min-h-[500px] select-none pt-2 deck-stack-shadow">
+        <div 
+          className="relative w-full max-w-4xl mx-auto min-h-[440px] sm:min-h-[480px] md:min-h-[500px] select-none pt-2 deck-stack-shadow"
+          style={{ perspective: '1200px' }}
+        >
           {/* Floating XP Reward Indicator (Gizmo Style) */}
           {floatingXp && (
             <div key={floatingXp.id} className="absolute top-1/4 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-float-xp">
@@ -359,29 +368,30 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
               </div>
             </div>
           )}
-          <div
-            onClick={handleFlip}
-            style={{
-              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-              transformStyle: 'preserve-3d',
-              transition: 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)',
-            }}
-            className="relative w-full min-h-[440px] sm:min-h-[480px] md:min-h-[500px] cursor-pointer"
-          >
-            {/* FRONT FACE (Full Wide Pink Flashcard with Washi Tape & Notebook Lines) */}
-            <div 
+          <div key={safeIndex} className="animate-pop-card-in w-full h-full">
+            <div
+              onClick={handleFlip}
               style={{
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                transform: 'rotateY(0deg)',
-                zIndex: isFlipped ? 1 : 2,
-                backgroundImage: "url('/assets/wide_pink_flashcard.png')",
-                backgroundSize: '100% 100%',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center',
+                transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
-              className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl border-2 border-pink-300/80 pt-10 sm:pt-12 pb-6 sm:pb-8 px-8 sm:px-14 md:px-16"
+              className="relative w-full min-h-[440px] sm:min-h-[480px] md:min-h-[500px] cursor-pointer"
             >
+              {/* FRONT FACE (Full Wide Pink Flashcard with Washi Tape & Notebook Lines) */}
+              <div 
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  transform: 'rotateY(0deg)',
+                  pointerEvents: isFlipped ? 'none' : 'auto',
+                  backgroundImage: "url('/assets/wide_pink_flashcard.png')",
+                  backgroundSize: '100% 100%',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                }}
+                className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl border-2 border-pink-300/80 pt-10 sm:pt-12 pb-6 sm:pb-8 px-8 sm:px-14 md:px-16"
+              >
               {/* Front Header */}
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-xs font-bold uppercase tracking-wider text-chobee-pink-700 bg-white/95 px-3.5 py-1 rounded-full border border-pink-300 shadow-xs backdrop-blur-md">
@@ -460,7 +470,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
-                zIndex: isFlipped ? 2 : 1,
+                pointerEvents: isFlipped ? 'auto' : 'none',
                 backgroundImage: "url('/assets/wide_pink_flashcard.png')",
                 backgroundSize: '100% 100%',
                 backgroundRepeat: 'no-repeat',
@@ -519,6 +529,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
             </div>
           </div>
         </div>
+      </div>
       ) : (
         /* Deck Completed Screen */
         <div className="glass-panel rounded-3xl p-8 sm:p-12 text-center space-y-6 border border-pink-200 shadow-soft-pink animate-fadeIn">
@@ -632,9 +643,9 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
                 <button
                   type="button"
                   onClick={handlePrev}
-                  disabled={currentIndex === 0}
+                  disabled={safeIndex === 0}
                   className={`text-xs font-bold flex items-center gap-1 transition-colors active:scale-95 ${
-                    currentIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:text-chobee-navy-900'
+                    safeIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:text-chobee-navy-900'
                   }`}
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -664,9 +675,9 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
             <div className="flex items-center justify-between gap-2.5 sm:gap-3 max-w-xl mx-auto">
               <button
                 onClick={handlePrev}
-                disabled={currentIndex === 0}
+                disabled={safeIndex === 0}
                 className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all active:scale-95 ${
-                  currentIndex === 0
+                  safeIndex === 0
                     ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
                     : 'bg-white hover:bg-slate-50 text-chobee-navy-900 border border-slate-200 shadow-xs'
                 }`}
@@ -687,7 +698,7 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
                 onClick={handleNext}
                 className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-chobee-navy-900 hover:bg-chobee-navy-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
               >
-                <span>{currentIndex === cards.length - 1 ? 'Finish Deck' : 'Next'}</span>
+                <span>{safeIndex === cards.length - 1 ? 'Finish Deck' : 'Next'}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
