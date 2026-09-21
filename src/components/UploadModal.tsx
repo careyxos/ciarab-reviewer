@@ -90,8 +90,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const loadingSteps = [
     'Reading and extracting text from your study document...',
-    'Analyzing core concepts and definitions...',
-    'Synthesizing flashcards, quiz questions, and study guide...',
+    'Analyzing concepts and definitions for Mayor Cia...',
+    'Chobee is synthesizing flashcards & quiz simulations...',
     'Your study set is ready! ✨',
   ];
 
@@ -255,29 +255,31 @@ Overview: Essential theoretical concepts, operational standards, review summarie
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-chobee-navy-950/70 backdrop-blur-xl animate-fadeIn">
+      <div className="relative w-full max-w-2xl glass-panel rounded-3xl p-5 sm:p-8 border border-pink-200/90 shadow-glow-dual max-h-[92vh] overflow-y-auto gpu-accelerated ios-spring">
+        {/* iOS Grab Handle */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-300/80 mx-auto mb-4" />
+
         {/* Close Button */}
         <button
           onClick={handleClose}
           disabled={isGenerating}
-          aria-label="Close modal"
-          className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-chobee-navy-900 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Title */}
-        <div className="flex items-center gap-3.5 mb-6">
-          <div className="w-10 h-10 rounded-2xl bg-chobee-pink-50 text-chobee-pink-600 flex items-center justify-center text-xl font-bold">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-400 to-blue-400 flex items-center justify-center text-xl shadow-soft-pink">
             ✨
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 font-display">
-              Create New Study Set
+            <h2 className="text-xl font-extrabold text-chobee-navy-900 font-display">
+              Create New AI Study Set
             </h2>
-            <p className="text-xs text-slate-500">
-              Upload lecture documents or paste notes to generate flashcards and quizzes
+            <p className="text-xs text-chobee-pink-600 font-semibold">
+              PDF, DOCX, Notes, or Topic Prompt • Built for Mayor Cia
             </p>
           </div>
         </div>
@@ -286,16 +288,16 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         {isGenerating ? (
           <div className="py-12 px-4 text-center space-y-6">
             <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-slate-100 border-t-chobee-pink-500 animate-spin" />
+              <div className="absolute inset-0 rounded-full border-4 border-pink-200 border-t-chobee-pink-500 animate-spin" />
               <span className="text-3xl animate-bounce">🧸</span>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 font-display">
+              <h3 className="text-base sm:text-lg font-bold text-chobee-navy-900 font-display">
                 {loadingSteps[generationStep]}
               </h3>
-              <p className="text-xs text-slate-500">
-                Synthesizing your flashcards, summary guide, and practice quiz...
+              <p className="text-xs text-chobee-navy-700/60">
+                Patience, pretty Mayor... Baby Bear is analyzing all concepts. 🌸
               </p>
             </div>
 
@@ -318,8 +320,8 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         ) : (
           /* FORM CONTROLS */
           <div className="space-y-5">
-            {/* Segmented Control */}
-            <div className="flex rounded-2xl bg-slate-100 p-1 border border-slate-200">
+            {/* iOS Segmented Control */}
+            <div className="flex rounded-2xl bg-slate-100 p-1 border border-slate-200/80">
               <button
                 onClick={() => {
                   if (soundEnabled) playHapticTap();
@@ -327,11 +329,11 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 }}
                 className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 ${
                   activeTab === 'upload'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'bg-white text-chobee-pink-600 shadow-xs'
+                    : 'text-slate-600 hover:text-chobee-navy-900'
                 }`}
               >
-                Upload Document (PDF / DOCX)
+                Upload File (PDF / DOCX)
               </button>
               <button
                 onClick={() => {
@@ -340,11 +342,11 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 }}
                 className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 ${
                   activeTab === 'paste'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'bg-white text-chobee-blue-600 shadow-xs'
+                    : 'text-slate-600 hover:text-chobee-navy-900'
                 }`}
               >
-                Paste Text / Lecture Notes
+                Paste Text / Notes
               </button>
             </div>
 
@@ -354,10 +356,10 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleFileDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all active:scale-[0.99] ${
+                className={`border-2 border-dashed rounded-3xl p-7 text-center cursor-pointer transition-all active:scale-[0.99] ${
                   file
-                    ? 'border-emerald-300 bg-emerald-50/40'
-                    : 'border-slate-200 hover:border-chobee-pink-400 bg-slate-50/50 hover:bg-white'
+                    ? 'border-emerald-300 bg-emerald-50/50'
+                    : 'border-pink-200 hover:border-chobee-pink-400 bg-pink-50/40'
                 }`}
               >
                 <input
@@ -367,24 +369,24 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                   accept=".pdf,.docx,.pptx,.txt,.md,image/*"
                   className="hidden"
                 />
-                <div className="w-12 h-12 rounded-2xl bg-white shadow-2xs mx-auto flex items-center justify-center text-chobee-pink-500 mb-3 border border-slate-100">
+                <div className="w-12 h-12 rounded-2xl bg-white shadow-soft-pink mx-auto flex items-center justify-center text-chobee-pink-500 mb-2">
                   {file ? <FileText className="w-6 h-6 text-emerald-600" /> : <Upload className="w-6 h-6" />}
                 </div>
 
                 {file ? (
                   <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-900">{file.name}</p>
+                    <p className="text-sm font-bold text-chobee-navy-900">{file.name}</p>
                     <p className="text-xs text-emerald-600 font-semibold">
-                      ✓ Ready for extraction ({(file.size / 1024).toFixed(1)} KB) • Click to change
+                      ✓ Document ready for extraction ({(file.size / 1024).toFixed(1)} KB) • Click to change
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-800">
-                      Click or drag your study file here
+                    <p className="text-sm font-bold text-chobee-navy-900">
+                      Tap or drop your PDF or DOCX here
                     </p>
-                    <p className="text-xs text-slate-500">
-                      Supports PDF, Word, PowerPoint, TXT, Markdown, and images
+                    <p className="text-xs text-chobee-navy-700/60">
+                      Supports PDF, Word, PowerPoint, TXT, Markdown, and Images
                     </p>
                   </div>
                 )}
@@ -394,7 +396,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
             {/* Paste Area */}
             {activeTab === 'paste' && (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">
+                <label className="text-xs font-bold text-chobee-navy-800">
                   Paste Study Material or Lecture Notes
                 </label>
                 <textarea
@@ -402,7 +404,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
                   placeholder="Paste lecture text, syllabus sections, committee notes, or book chapters..."
-                  className="w-full p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
+                  className="w-full p-3.5 rounded-2xl border border-slate-200 bg-white text-xs text-chobee-navy-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
                 />
               </div>
             )}
@@ -410,22 +412,22 @@ Overview: Essential theoretical concepts, operational standards, review summarie
             {/* Title & Category Input */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Reviewer Title</label>
+                <label className="text-xs font-bold text-chobee-navy-800">Reviewer Title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Chapter 4 Operations Reviewer"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-400 transition-all"
+                  placeholder="e.g. Tourism Week Final Reviewer"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-900 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Category</label>
+                <label className="text-xs font-bold text-chobee-navy-800">Category</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-400 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-900 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
                 >
                   <option value="Tourism">Tourism Management</option>
                   <option value="Accounting">Accounting & Finance</option>
@@ -436,14 +438,14 @@ Overview: Essential theoretical concepts, operational standards, review summarie
             </div>
 
             {/* Generation Settings */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+            <div className="p-4 rounded-2xl bg-white/90 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-chobee-navy-800">
                 <span className="flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-chobee-pink-500" />
                   <span>Output Preferences</span>
                 </span>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  Customized Generation
+                <span className="text-[11px] text-chobee-pink-600 font-semibold">
+                  Personalized for Mayor Cia
                 </span>
               </div>
 
@@ -456,7 +458,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                     onClick={() => toggleQuestionType('multiple_choice')}
                     className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
                       questionTypes.includes('multiple_choice')
-                        ? 'bg-chobee-pink-50 text-chobee-pink-700 border-chobee-pink-200'
+                        ? 'bg-pink-100 text-pink-800 border-pink-300'
                         : 'bg-white text-slate-500 border-slate-200'
                     }`}
                   >
@@ -467,7 +469,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                     onClick={() => toggleQuestionType('true_false')}
                     className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
                       questionTypes.includes('true_false')
-                        ? 'bg-chobee-blue-50 text-chobee-blue-700 border-chobee-blue-200'
+                        ? 'bg-blue-100 text-blue-800 border-blue-300'
                         : 'bg-white text-slate-500 border-slate-200'
                     }`}
                   >
@@ -478,7 +480,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                     onClick={() => toggleQuestionType('identification')}
                     className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
                       questionTypes.includes('identification')
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        ? 'bg-purple-100 text-purple-800 border-purple-300'
                         : 'bg-white text-slate-500 border-slate-200'
                     }`}
                   >
@@ -502,8 +504,8 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                         }}
                         className={`flex-1 py-1 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
                           cardCount === num
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                            ? 'bg-chobee-navy-900 text-white border-chobee-navy-900 shadow-xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-pink-200'
                         }`}
                       >
                         {num}
@@ -515,7 +517,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 <div className="space-y-1">
                   <span className="text-[11px] font-bold text-slate-500 flex items-center justify-between">
                     <span>Quiz Count:</span>
-                    <span className="text-[10px] text-chobee-pink-600 font-semibold">5 to 50 max</span>
+                    <span className="text-[10px] text-chobee-pink-600 font-extrabold">5 to 50 max</span>
                   </span>
                   <div className="flex gap-1.5">
                     {[5, 10, 30, 50].map((num) => (
@@ -528,8 +530,8 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                         }}
                         className={`flex-1 py-1 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
                           quizCount === num
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                            ? 'bg-gradient-to-r from-chobee-pink-500 to-rose-500 text-white border-pink-500 shadow-soft-pink'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-pink-200'
                         }`}
                       >
                         {num === 50 ? '50 Max' : num}
@@ -545,9 +547,9 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as any)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-800"
                 >
-                  <option value="Taglish">Taglish (Chobee Friendly 🧸)</option>
+                  <option value="Taglish">Taglish (Chobee Tone 🧸)</option>
                   <option value="English">English (Formal)</option>
                   <option value="Tagalog">Tagalog (Formal)</option>
                 </select>
@@ -556,19 +558,19 @@ Overview: Essential theoretical concepts, operational standards, review summarie
 
             {/* Token Cost and Balance Info */}
             <div className="flex items-center justify-between px-1 text-xs">
-              <div className="flex items-center gap-1.5 font-semibold text-slate-600">
-                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span>Cost: <strong className="text-slate-900">{REQUIRED_TOKENS} Tokens</strong></span>
+              <div className="flex items-center gap-1.5 font-bold text-slate-500">
+                <Zap className="w-3.5 h-3.5 text-chobee-pink-500 fill-chobee-pink-500" />
+                <span>Cost: <strong className="text-chobee-navy-900">{REQUIRED_TOKENS} Tokens</strong></span>
               </div>
               {user ? (
-                <span className={`font-semibold text-xs ${hasEnoughTokens ? 'text-slate-600' : 'text-red-500'}`}>
-                  Available: <strong className={hasEnoughTokens ? 'text-slate-900 font-mono' : 'text-red-600 font-mono'}>{user.role === 'admin' ? 'Unlimited' : dailyUsage.remaining}</strong>
+                <span className={`font-bold text-xs ${hasEnoughTokens ? 'text-slate-600' : 'text-red-500'}`}>
+                  Available: <strong className={hasEnoughTokens ? 'text-chobee-navy-900 font-mono' : 'text-red-600 font-mono'}>{user.role === 'admin' ? 'Unlimited' : dailyUsage.remaining}</strong>
                 </span>
               ) : (
                 <button
                   type="button"
                   onClick={() => openAuthModal('login')}
-                  className="text-chobee-pink-600 font-semibold hover:underline"
+                  className="text-chobee-pink-600 font-bold hover:underline"
                 >
                   Log in to track credits &rarr;
                 </button>
@@ -580,11 +582,11 @@ Overview: Essential theoretical concepts, operational standards, review summarie
               <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
                 <span className="text-base shrink-0">🌙</span>
                 <div>
-                  <strong className="block font-bold text-slate-900">
-                    {tokenError || "You're out of AI tokens for today"}
+                  <strong className="block font-black text-chobee-navy-900">
+                    {tokenError || "You're out of AI tokens for today 💤"}
                   </strong>
-                  <span className="font-medium text-slate-500">
-                    Your daily study credits will reset in {dailyUsage.resetCountdown}.
+                  <span className="font-semibold text-slate-500">
+                    Your daily study credits will reset tomorrow (in {dailyUsage.resetCountdown}).
                   </span>
                 </div>
               </div>
@@ -596,14 +598,14 @@ Overview: Essential theoretical concepts, operational standards, review summarie
               disabled={
                 (activeTab === 'upload' ? !file : !pastedText.trim()) || (Boolean(user) && !hasEnoughTokens)
               }
-              className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] ${
+              className={`w-full py-3.5 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-soft-pink transition-all active:scale-[0.97] ${
                 (activeTab === 'upload' ? file : pastedText.trim()) && (!user || hasEnoughTokens)
-                  ? 'bg-slate-900 hover:bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                  ? 'bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-chobee-pink-400" />
-              <span>Generate Study Set</span>
+              <Sparkles className="w-4 h-4" />
+              <span>Generate AI Study Material</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

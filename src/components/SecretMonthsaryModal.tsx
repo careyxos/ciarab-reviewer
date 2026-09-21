@@ -59,8 +59,10 @@ export const SecretMonthsaryModal: React.FC<SecretMonthsaryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 border border-chobee-pink-200 shadow-xl max-h-[92vh] overflow-y-auto space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-chobee-navy-950/70 backdrop-blur-xl animate-fadeIn">
+      <div className="relative w-full max-w-2xl glass-panel rounded-3xl p-5 sm:p-8 border border-pink-200/90 shadow-glow-dual max-h-[92vh] overflow-y-auto space-y-5 gpu-accelerated ios-spring">
+        {/* iOS Grab Handle */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-300/80 mx-auto -mt-1 mb-2" />
 
         {/* Close Button */}
         <button

@@ -2,8 +2,11 @@ import React from 'react';
 import { 
   Sparkles, 
   ArrowRight, 
+  CheckCircle2, 
+  BrainCircuit, 
   Layers, 
   Award, 
+  Gift, 
   Users, 
   Zap,
   BookOpen
@@ -26,20 +29,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
   const { openAuthModal, referralQueryCode } = useAuth();
 
   return (
-    <div className="space-y-12 py-8 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 animate-fadeIn">
+    <div className="space-y-10 py-6 max-w-5xl mx-auto px-3.5 sm:px-6 lg:px-8 animate-fadeIn">
       {/* Referral Banner if visited via referral link */}
       {referralQueryCode && (
-        <div className="bg-white border border-chobee-pink-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xs">
+        <div className="bg-gradient-to-r from-pink-100/90 via-purple-100/80 to-blue-100/90 border border-pink-300/80 rounded-3xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-sm animate-bounceSubtle">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-chobee-pink-50 flex items-center justify-center text-xl shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-xl shadow-xs">
               🎁
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-chobee-pink-600 block">
+              <span className="text-xs font-black uppercase tracking-wider text-pink-600 block">
                 Special Invitation
               </span>
-              <p className="text-xs sm:text-sm font-semibold text-slate-800">
-                You were invited to study with Chobee! Sign up now to claim your <strong>100 Daily Study Tokens</strong>.
+              <p className="text-xs sm:text-sm font-bold text-chobee-navy-950">
+                You were invited by a fellow student! Sign up now to claim your <strong>100 Daily Study Tokens</strong>.
               </p>
             </div>
           </div>
@@ -48,7 +51,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               if (soundEnabled) playHapticTap();
               openAuthModal('signup');
             }}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs shrink-0 active:scale-95 transition-all"
+            className="px-4 py-2 rounded-2xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white font-extrabold text-xs shadow-soft-pink shrink-0"
           >
             Claim Credits &rarr;
           </button>
@@ -56,26 +59,28 @@ export const LandingView: React.FC<LandingViewProps> = ({
       )}
 
       {/* Hero Section */}
-      <div className="relative bg-white rounded-3xl p-8 sm:p-14 border border-slate-200 shadow-card text-center overflow-hidden">
-        {/* Mascot badge */}
-        <div className="w-20 h-20 rounded-3xl bg-chobee-pink-50 border border-chobee-pink-100 flex items-center justify-center text-4xl mx-auto mb-6 shadow-xs animate-float">
-          🧸
+      <div className="relative glass-panel rounded-[36px] p-8 sm:p-12 border-2 border-white/90 shadow-glow-dual text-center overflow-hidden">
+        {/* Floating Mascot */}
+        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 p-1 mx-auto mb-6 shadow-glow-pink animate-float">
+          <div className="w-full h-full bg-white rounded-3xl flex items-center justify-center text-5xl sm:text-6xl select-none">
+            🧸
+          </div>
         </div>
 
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 font-semibold text-xs mb-4">
-          <Sparkles className="w-3.5 h-3.5 text-chobee-pink-500" />
-          <span>Your Smart AI Study Companion</span>
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-100/80 border border-pink-200/90 text-chobee-pink-700 font-extrabold text-xs mb-4">
+          <Sparkles className="w-3.5 h-3.5 text-chobee-pink-500 animate-pulse" />
+          <span>Multi-User AI Study & Review Companion</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-bold text-slate-900 tracking-tight font-display max-w-2xl mx-auto leading-tight">
-          Study Smarter, Retain Longer with{' '}
-          <span className="text-chobee-pink-600">
-            Chobee
+        <h1 className="text-3xl sm:text-5xl font-black text-chobee-navy-950 tracking-tight font-display max-w-2xl mx-auto leading-tight">
+          Reviewhin na kita with{' '}
+          <span className="bg-gradient-to-r from-chobee-pink-600 to-chobee-blue-600 bg-clip-text text-transparent">
+            Baby Bear Chobee
           </span>
         </h1>
 
-        <p className="mt-4 text-sm sm:text-base text-slate-600 font-normal max-w-xl mx-auto leading-relaxed">
-          Turn your lecture slides, PDFs, and notes into interactive 3D flashcards, practice quizzes, and structured study guides in seconds.
+        <p className="mt-4 text-sm sm:text-base text-slate-600 font-semibold max-w-xl mx-auto leading-relaxed">
+          The satisfying AI study platform made for <strong>Mayor Cia & friends</strong>. Turn lecture slides and PDFs into 3D flashcards, Gizmo exam challenges, and sweet Taglish summaries.
         </p>
 
         {/* CTA Buttons */}
@@ -85,9 +90,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
               if (soundEnabled) playHapticTap();
               openAuthModal('signup');
             }}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-black text-sm shadow-soft-pink flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
-            <Sparkles className="w-4 h-4 text-chobee-pink-400" />
+            <Sparkles className="w-4 h-4" />
             <span>Create Free Account (100 Credits)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -97,57 +102,59 @@ export const LandingView: React.FC<LandingViewProps> = ({
               if (soundEnabled) playHapticTap();
               openAuthModal('login');
             }}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-sm active:scale-95 transition-all shadow-2xs"
+            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200 text-chobee-navy-900 font-extrabold text-sm active:scale-95 transition-all shadow-xs"
           >
             Log In
           </button>
         </div>
 
         {/* Highlight Bullets */}
-        <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-            <div className="text-chobee-pink-600 font-bold text-xs flex items-center gap-1.5 mb-1">
+        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
+          <div className="p-3.5 rounded-2xl bg-white/70 border border-white/90">
+            <div className="text-chobee-pink-500 font-black text-xs flex items-center gap-1.5 mb-1">
               <Zap className="w-4 h-4" />
               <span>100 Credits/Day</span>
             </div>
-            <p className="text-[11px] text-slate-500">Resets automatically every 24 hours.</p>
+            <p className="text-[11px] text-slate-500 font-semibold">Resets automatically every 24 hours.</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-            <div className="text-chobee-blue-600 font-bold text-xs flex items-center gap-1.5 mb-1">
+          <div className="p-3.5 rounded-2xl bg-white/70 border border-white/90">
+            <div className="text-chobee-blue-500 font-black text-xs flex items-center gap-1.5 mb-1">
               <Layers className="w-4 h-4" />
               <span>3D Flashcards</span>
             </div>
-            <p className="text-[11px] text-slate-500">Smooth flip animations and spaced repetition.</p>
+            <p className="text-[11px] text-slate-500 font-semibold">Spaced repetition with Gizmo ratings.</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-            <div className="text-purple-600 font-bold text-xs flex items-center gap-1.5 mb-1">
+          <div className="p-3.5 rounded-2xl bg-white/70 border border-white/90">
+            <div className="text-purple-500 font-black text-xs flex items-center gap-1.5 mb-1">
               <Award className="w-4 h-4" />
-              <span>Quiz Streaks & XP</span>
+              <span>Exam Streak XP</span>
             </div>
-            <p className="text-[11px] text-slate-500">Instant feedback, streak combos, and scores.</p>
+            <p className="text-[11px] text-slate-500 font-semibold">Tactile sounds & combo multipliers.</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-            <div className="text-emerald-600 font-bold text-xs flex items-center gap-1.5 mb-1">
+          <div className="p-3.5 rounded-2xl bg-white/70 border border-white/90">
+            <div className="text-emerald-500 font-black text-xs flex items-center gap-1.5 mb-1">
               <Users className="w-4 h-4" />
-              <span>Cloud Sync</span>
+              <span>Private Decks</span>
             </div>
-            <p className="text-[11px] text-slate-500">Your decks saved and synced everywhere.</p>
+            <p className="text-[11px] text-slate-500 font-semibold">Isolated user data and cloud sync.</p>
           </div>
         </div>
       </div>
 
       {/* Preset / Sample Reviewers Preview */}
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 font-display">
-            Sample Study Materials
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Select any sample reviewer below to test the 3D flashcards and quizzes instantly
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-black text-chobee-navy-950 font-display">
+              Try Out Free Sample Reviewers
+            </h2>
+            <p className="text-xs text-slate-500 font-semibold">
+              Click any subject below to test the 3D flashcards and Gizmo quizzes instantly!
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -158,25 +165,25 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 if (soundEnabled) playHapticTap();
                 onSelectSampleSet(set);
               }}
-              className="p-5 rounded-2xl bg-white hover:border-slate-300 border border-slate-200 shadow-2xs hover:shadow-card transition-all text-left group active:scale-[0.99]"
+              className="p-5 rounded-3xl bg-white/70 hover:bg-white/90 border-2 border-white/90 hover:border-pink-200/90 shadow-sm hover:shadow-md transition-all text-left group active:scale-[0.98]"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-700">
                   {set.category}
                 </span>
-                <span className="text-xs font-medium text-slate-400">
+                <span className="text-xs font-bold text-slate-400">
                   {set.flashcards.length} Cards
                 </span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 group-hover:text-chobee-pink-600 transition-colors line-clamp-1">
+              <h3 className="text-base font-black text-chobee-navy-950 group-hover:text-chobee-pink-600 transition-colors">
                 {set.title}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+              <p className="text-xs text-slate-500 font-semibold mt-1 line-clamp-2">
                 {set.description}
               </p>
-              <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-chobee-pink-600">
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-chobee-pink-600">
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Open sample deck &rarr;</span>
+                <span>Study this set &rarr;</span>
               </div>
             </button>
           ))}
