@@ -24,6 +24,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     const payload = verifySessionToken(token);
     const ADMIN_EMAILS = [
       'careysison21@gmail.com',
+      'ciarabernadette12@gmail.com',
       'carey@chobee.app',
       ...(process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase().split(',').map((e: string) => e.trim()) : [])
     ];
@@ -219,8 +220,38 @@ export const handler: Handler = async (event: HandlerEvent) => {
         return { statusCode: 404, headers: JSON_HEADERS, body: JSON.stringify({ error: 'User not found' }) };
       }
 
-      // Also adjust today's usage remaining if limit increased or role changed
       const effectiveLimit = updates.daily_token_limit ?? dailyTokenLimit;
+
+      // Update in Supabase if configured
+      const sbUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (sbUrl && sbKey) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const sb = createClient(sbUrl, sbKey);
+          const sbUpdates: any = {};
+          if (typeof updates.daily_token_limit === 'number') sbUpdates.daily_token_limit = updates.daily_token_limit;
+          if (typeof updates.is_disabled === 'boolean') sbUpdates.is_disabled = updates.is_disabled;
+          if (updates.role) {
+            sbUpdates.role = updates.role;
+            sbUpdates.plan = updates.role === 'admin' ? 'unlimited' : updates.role === 'premium' ? 'pro' : 'free';
+          }
+          await sb.from('profiles').update(sbUpdates).eq('id', targetUserId);
+
+          if (typeof effectiveLimit === 'number') {
+            const today = getTodayString();
+            await sb.from('daily_usage').update({
+              tokens_allocated: effectiveLimit,
+              tokens_remaining: effectiveLimit,
+            }).eq('user_id', targetUserId).eq('date', today);
+          }
+        } catch (e) {
+          console.warn('Supabase admin update error:', e);
+        }
+      }
+
+      // Also adjust today's usage remaining in local db if limit increased or role changed
       if (typeof effectiveLimit === 'number') {
         const today = getTodayString();
         const usage = await getDailyUsage(targetUserId, today);

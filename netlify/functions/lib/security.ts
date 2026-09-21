@@ -50,19 +50,51 @@ export function createSessionToken(user: User): string {
 export function verifySessionToken(token: string): TokenPayload | null {
   try {
     if (!token || !token.includes('.')) return null;
-    const [encodedPayload, signature] = token.split('.');
-    
-    const expectedSignature = crypto
-      .createHmac('sha256', SECRET)
-      .update(encodedPayload)
-      .digest('base64url');
+    const parts = token.split('.');
 
-    if (signature !== expectedSignature) return null;
+    // Case 1: Standard 3-part JWT (e.g. Supabase Auth access_token)
+    if (parts.length === 3) {
+      const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+      const decoded = JSON.parse(payloadJson);
+      
+      // Check expiration if present
+      if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+        return null;
+      }
 
-    const payload: TokenPayload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+      const userId = decoded.sub || decoded.userId || decoded.id || '';
+      const email = decoded.email || decoded.user_metadata?.email || '';
+      const role = decoded.app_metadata?.role || decoded.user_metadata?.role || decoded.role || 'user';
+      const exp = decoded.exp || Math.floor(Date.now() / 1000) + 86400;
 
-    return payload;
+      if (!userId && !email) return null;
+
+      return {
+        userId,
+        email,
+        role,
+        exp,
+      };
+    }
+
+    // Case 2: Custom 2-part session token (encodedPayload.signature)
+    if (parts.length === 2) {
+      const [encodedPayload, signature] = parts;
+      
+      const expectedSignature = crypto
+        .createHmac('sha256', SECRET)
+        .update(encodedPayload)
+        .digest('base64url');
+
+      if (signature !== expectedSignature) return null;
+
+      const payload: TokenPayload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+      if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+
+      return payload;
+    }
+
+    return null;
   } catch (err) {
     return null;
   }

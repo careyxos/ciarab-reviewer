@@ -119,7 +119,7 @@ BEGIN
   v_ref_code := 'CHOBEE-' || UPPER(SUBSTRING(MD5(NEW.id::TEXT || NOW()::TEXT) FROM 1 FOR 6));
   
   -- Check admin whitelist
-  IF LOWER(NEW.email) IN ('careysison21@gmail.com', 'carey@chobee.app') THEN
+  IF LOWER(NEW.email) IN ('careysison21@gmail.com', 'ciarabernadette12@gmail.com', 'carey@chobee.app') THEN
     v_role := 'admin';
     v_plan := 'unlimited';
     v_limit := 999999;

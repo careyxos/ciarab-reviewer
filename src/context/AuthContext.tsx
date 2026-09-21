@@ -42,6 +42,7 @@ const DEFAULT_USAGE: DailyUsageState = {
 
 const ADMIN_WHITELIST = [
   'careysison21@gmail.com',
+  'ciarabernadette12@gmail.com',
   'carey@chobee.app',
   ...(import.meta.env.VITE_ADMIN_EMAIL ? (import.meta.env.VITE_ADMIN_EMAIL as string).toLowerCase().split(',').map((e: string) => e.trim()) : [])
 ];
@@ -579,7 +580,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const isLoggedIn = Boolean(user);
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || Boolean(user?.email && ADMIN_WHITELIST.includes(user.email.toLowerCase().trim()));
 
   return (
     <AuthContext.Provider

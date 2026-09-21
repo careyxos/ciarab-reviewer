@@ -148,68 +148,6 @@ export function App() {
   // Encouraging toast notification
   const [activeToast, setActiveToast] = useState<string | null>(null);
 
-  // DRAGGABLE FLOATING BALL STATE (100% Responsive on Touch & Mouse)
-  const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(null);
-  const isDraggingRef = useRef(false);
-  const startCoordRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean }>({
-    startX: 0,
-    startY: 0,
-    origX: 0,
-    origY: 0,
-    moved: false,
-  });
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    const el = e.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-
-    startCoordRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: rect.left,
-      origY: rect.top,
-      moved: false,
-    };
-    isDraggingRef.current = true;
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch (err) {
-      // ignore
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    const dx = e.clientX - startCoordRef.current.startX;
-    const dy = e.clientY - startCoordRef.current.startY;
-
-    // Only consider as drag if movement exceeds 10px (prevents accidental drag on tap)
-    if (Math.hypot(dx, dy) > 10) {
-      startCoordRef.current.moved = true;
-      const maxX = window.innerWidth - 65;
-      const maxY = window.innerHeight - 65;
-      const nextX = Math.min(maxX, Math.max(12, startCoordRef.current.origX + dx));
-      const nextY = Math.min(maxY, Math.max(12, startCoordRef.current.origY + dy));
-      setCustomPos({ x: nextX, y: nextY });
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (err) {
-      // ignore
-    }
-
-    // If it was just a tap without significant dragging, open modal immediately!
-    if (!startCoordRef.current.moved) {
-      if (soundEnabled) playHapticTap();
-      setIsMonthsaryOpen(true);
-    }
-  };
-
   // Initialize data on mount
   useEffect(() => {
     const sharedSet = parseSharedSetFromUrl();
@@ -376,31 +314,7 @@ export function App() {
   const handleUnlockEasterEgg = () => {};
 
   return (
-    <div className="min-h-screen relative flex flex-col justify-between selection:bg-chobee-pink-200 selection:text-chobee-pink-700 overflow-x-hidden bg-gradient-to-br from-[#FFF5F8] via-[#F8FAFF] to-[#F3F8FE]">
-      {/* SIGNATURE ORIGINAL AESTHETIC PINK & BLUE PASTEL AMBIENT BACKGROUND */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
-        {/* Soft Glowing Ambient Pink & Blue Clouds & Orbs */}
-        <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-pink-300/40 via-rose-200/30 to-transparent blur-[100px] animate-pulse-slow" />
-        <div className="absolute top-1/4 -right-32 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-sky-300/40 via-blue-200/30 to-transparent blur-[100px] animate-pulse-slow" />
-        <div className="absolute -bottom-40 left-1/3 w-[700px] h-[700px] rounded-full bg-gradient-to-tr from-pink-200/35 via-purple-200/25 to-blue-200/35 blur-[120px]" />
-
-        {/* Dreamy Soft Frosted Sheen */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-white/40 backdrop-blur-[0.5px]" />
-        
-        {/* Soft Vignette Edges */}
-        <div className="absolute inset-0 shadow-inner border-8 border-white/20 pointer-events-none" />
-      </div>
-
-      {/* Aesthetic Biome Switched Toast Notification */}
-      {biomeNotification && (
-        <div className="fixed top-14 sm:top-18 inset-x-0 flex justify-center z-50 pointer-events-none animate-fadeIn">
-          <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/95 border border-pink-300 shadow-glow-dual text-xs font-black text-chobee-navy-900 backdrop-blur-xl scale-105 transition-all">
-            <span className="text-base">{biomeNotification.icon}</span>
-            <span>Aesthetic Biome: <span className="text-chobee-pink-600">{biomeNotification.name}</span> Activated! ✨</span>
-          </div>
-        </div>
-      )}
-
+    <div className="min-h-screen relative flex flex-col justify-between selection:bg-pink-100 selection:text-pink-700 bg-[#FAF9F6] text-slate-800">
       {/* App Header */}
       <div className="relative z-30">
         <Header
@@ -420,16 +334,16 @@ export function App() {
 
       {/* Encouraging Toast Notification */}
       {activeToast && (
-        <div className="fixed top-20 right-4 sm:right-8 z-50 animate-bounce">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 border border-pink-300 shadow-soft-pink text-xs font-bold text-chobee-navy-900 backdrop-blur-md">
-            <span className="text-base">🧸</span>
+        <div className="fixed top-20 right-4 sm:right-8 z-50 animate-fadeIn">
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white border border-pink-200/90 shadow-soft-pink text-xs font-semibold text-chobee-navy-900">
+            <span className="text-base select-none">🧸</span>
             <span>{activeToast}</span>
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1">
+      <main className="relative z-10 flex-1 pb-16 lg:pb-8">
         {activeTab === 'dashboard' && (
           isLoggedIn ? (
             <Dashboard
@@ -525,74 +439,78 @@ export function App() {
         )}
       </main>
 
-      {/* MOBILE iOS GLASS BOTTOM NAVIGATION DOCK (Instant phone tab navigation) */}
+      {/* MOBILE MODERN BOTTOM NAVIGATION BAR */}
       {isLoggedIn && (
-        <nav className="lg:hidden fixed bottom-3 inset-x-3 z-40 ipados-dock rounded-3xl p-1.5 flex items-center justify-around shadow-2xl border border-white/90 backdrop-blur-2xl">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around shadow-sm">
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               setActiveTab('dashboard');
             }}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               activeTab === 'dashboard'
-                ? 'bg-chobee-pink-500 text-white shadow-soft-pink'
-                : 'text-chobee-navy-700 hover:text-chobee-pink-600'
+                ? 'text-chobee-pink-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <LayoutDashboard className="w-4 h-4" />
             <span>Home</span>
           </button>
+
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               setActiveTab('library');
             }}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               activeTab === 'library'
-                ? 'bg-chobee-blue-500 text-white shadow-soft-blue'
-                : 'text-chobee-navy-700 hover:text-chobee-blue-600'
+                ? 'text-chobee-blue-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Library className="w-4 h-4" />
             <span>Materials</span>
           </button>
+
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               setActiveTab('flashcards');
             }}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               activeTab === 'flashcards'
-                ? 'bg-purple-500 text-white shadow-md'
-                : 'text-chobee-navy-700 hover:text-purple-600'
+                ? 'text-purple-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <BrainCircuit className="w-4 h-4" />
             <span>Cards</span>
           </button>
+
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               setActiveTab('quiz');
             }}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               activeTab === 'quiz'
-                ? 'bg-chobee-pink-500 text-white shadow-soft-pink'
-                : 'text-chobee-navy-700 hover:text-chobee-pink-600'
+                ? 'text-emerald-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>Quiz</span>
           </button>
+
           <button
             onClick={() => {
               if (soundEnabled) playHapticTap();
               setActiveTab('summary');
             }}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               activeTab === 'summary'
-                ? 'bg-chobee-blue-500 text-white shadow-soft-blue'
-                : 'text-chobee-navy-700 hover:text-chobee-blue-600'
+                ? 'text-amber-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -600,58 +518,6 @@ export function App() {
           </button>
         </nav>
       )}
-
-      {/* DRAGGABLE & HIGHLY RESPONSIVE MY MELODY FLOATING WIDGET ("A secret for Cia 🎀") */}
-      <div
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        style={{
-          position: 'fixed',
-          left: customPos ? `${customPos.x}px` : undefined,
-          top: customPos ? `${customPos.y}px` : undefined,
-          right: !customPos ? '16px' : undefined,
-          bottom: !customPos ? (isLoggedIn ? '74px' : '24px') : undefined,
-          touchAction: 'none',
-          userSelect: 'none',
-          zIndex: 9999,
-        }}
-        className="cursor-pointer active:cursor-grabbing transition-transform animate-float-melody"
-      >
-        <button
-          type="button"
-          aria-label="A secret for Mayor Cia from My Melody"
-          onClick={() => {
-            if (!startCoordRef.current.moved) {
-              if (soundEnabled) playHapticTap();
-              setIsMonthsaryOpen(true);
-            }
-          }}
-          className="relative group p-1 rounded-[26px] bg-gradient-to-tr from-pink-300 via-white to-pink-200 shadow-soft-pink hover:shadow-glow-dual hover:scale-110 active:scale-95 transition-all border-2 border-white"
-        >
-          {/* My Melody 3D Avatar */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[22px] overflow-hidden bg-pink-100 flex items-center justify-center relative shadow-inner">
-            <img 
-              src="/assets/my_melody_avatar.jpg" 
-              alt="My Melody for Mayor Cia" 
-              className="w-full h-full object-cover pointer-events-none scale-105"
-            />
-          </div>
-
-          {/* Sweet Notification Pulse Badge */}
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-4 w-4 bg-chobee-pink-500 border-2 border-white items-center justify-center text-[8px] text-white font-bold">
-              🎀
-            </span>
-          </span>
-
-          {/* Aesthetic Tooltip */}
-          <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 hidden group-hover:block bg-white/95 text-chobee-navy-900 border border-pink-300 text-xs font-bold px-3.5 py-2 rounded-2xl whitespace-nowrap shadow-soft-pink pointer-events-none animate-fadeIn backdrop-blur-md">
-            <span className="text-chobee-pink-600 font-extrabold">My Melody 🎀:</span> Secret Note from Chobee 🧸 (Tap to open • Drag to move)
-          </div>
-        </button>
-      </div>
 
       {/* App Modals */}
       <UploadModal
@@ -685,6 +551,7 @@ export function App() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         soundEnabled={soundEnabled}
+        onOpenMonthsary={() => setIsMonthsaryOpen(true)}
       />
     </div>
   );

@@ -18,12 +18,14 @@ interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   soundEnabled?: boolean;
+  onOpenMonthsary?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen,
   onClose,
   soundEnabled = true,
+  onOpenMonthsary,
 }) => {
   const { user, updateProfile } = useAuth();
   const [copied, setCopied] = useState(false);
@@ -190,6 +192,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Discreet Personal Memory Note Link */}
+          {onOpenMonthsary && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenMonthsary();
+                }}
+                className="text-xs font-semibold text-chobee-pink-600 hover:text-chobee-pink-700 hover:underline inline-flex items-center gap-1 py-1"
+              >
+                <span>💌</span>
+                <span>Open Chobee's Special Memory Note</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -111,11 +111,23 @@ export async function persistToBlobStore() {
 // Initialize on first load
 loadDatabase();
 
+async function getSupabaseAdmin() {
+  const sbUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!sbUrl || !sbKey) return null;
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    return createClient(sbUrl, sbKey);
+  } catch {
+    return null;
+  }
+}
+
 // --- USER OPERATIONS ---
 
 function sanitizeUser(user: User): User {
-  if (user.role === 'free' && user.daily_token_limit > 100) {
-    user.daily_token_limit = 100;
+  if (!user.daily_token_limit || user.daily_token_limit <= 0) {
+    user.daily_token_limit = user.role === 'admin' ? 999999 : user.role === 'premium' ? 500 : 100;
   }
   return user;
 }
@@ -124,14 +136,66 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   loadDatabase();
   await syncWithBlobStore();
   const normalized = email.toLowerCase().trim();
-  const user = Object.values(memoryDb.users).find((u) => u.email.toLowerCase() === normalized);
+  let user = Object.values(memoryDb.users).find((u) => u.email.toLowerCase() === normalized);
+
+  if (!user) {
+    const sb = await getSupabaseAdmin();
+    if (sb) {
+      try {
+        const { data: p } = await sb.from('profiles').select('*').ilike('email', normalized).maybeSingle();
+        if (p) {
+          user = {
+            id: p.id,
+            email: p.email,
+            password_hash: '',
+            display_name: p.display_name || p.email.split('@')[0],
+            role: p.role,
+            daily_token_limit: p.daily_token_limit ?? (p.role === 'admin' ? 999999 : 100),
+            referral_code: p.referral_code || 'CHOBEE-USER',
+            referred_by: p.referred_by,
+            created_at: p.created_at,
+            last_login: p.last_login_at || p.created_at,
+            is_disabled: Boolean(p.is_disabled),
+          };
+          memoryDb.users[p.id] = user;
+        }
+      } catch (e) {}
+    }
+  }
+
   return user ? sanitizeUser({ ...user }) : null;
 }
 
 export async function getUserById(id: string): Promise<User | null> {
   loadDatabase();
   await syncWithBlobStore();
-  const user = memoryDb.users[id];
+  let user = memoryDb.users[id];
+
+  if (!user) {
+    const sb = await getSupabaseAdmin();
+    if (sb) {
+      try {
+        const { data: p } = await sb.from('profiles').select('*').eq('id', id).maybeSingle();
+        if (p) {
+          user = {
+            id: p.id,
+            email: p.email,
+            password_hash: '',
+            display_name: p.display_name || p.email.split('@')[0],
+            role: p.role,
+            daily_token_limit: p.daily_token_limit ?? (p.role === 'admin' ? 999999 : 100),
+            referral_code: p.referral_code || 'CHOBEE-USER',
+            referred_by: p.referred_by,
+            created_at: p.created_at,
+            last_login: p.last_login_at || p.created_at,
+            is_disabled: Boolean(p.is_disabled),
+          };
+          memoryDb.users[id] = user;
+        }
+      } catch (e) {}
+    }
+  }
+
   return user ? sanitizeUser({ ...user }) : null;
 }
 
@@ -155,8 +219,29 @@ export async function createUser(user: User): Promise<User> {
 export async function updateUser(id: string, updates: Partial<User>): Promise<User | null> {
   loadDatabase();
   await syncWithBlobStore();
-  const user = memoryDb.users[id];
-  if (!user) return null;
+
+  const sb = await getSupabaseAdmin();
+  if (sb) {
+    try {
+      const sbUpdates: any = {};
+      if (updates.display_name !== undefined) sbUpdates.display_name = updates.display_name;
+      if (updates.role !== undefined) {
+        sbUpdates.role = updates.role;
+        sbUpdates.plan = updates.role === 'admin' ? 'unlimited' : updates.role === 'premium' ? 'pro' : 'free';
+      }
+      if (updates.daily_token_limit !== undefined) sbUpdates.daily_token_limit = updates.daily_token_limit;
+      if (updates.is_disabled !== undefined) sbUpdates.is_disabled = updates.is_disabled;
+      if (updates.last_login !== undefined) sbUpdates.last_login_at = updates.last_login;
+      await sb.from('profiles').update(sbUpdates).eq('id', id);
+    } catch (e) {}
+  }
+
+  let user = memoryDb.users[id];
+  if (!user) {
+    user = await getUserById(id);
+    if (!user) return null;
+  }
+
   const updated = sanitizeUser({ ...user, ...updates });
   memoryDb.users[id] = updated;
   await persistToBlobStore();
@@ -175,17 +260,11 @@ export async function getDailyUsage(userId: string, date: string): Promise<Daily
   loadDatabase();
   await syncWithBlobStore();
   const user = await getUserById(userId);
-  const isFree = !user || user.role === 'free';
-  const roleLimit = isFree ? 100 : (user.role === 'admin' ? 999999 : (user.daily_token_limit || 500));
+  const roleLimit = user?.daily_token_limit ?? (user?.role === 'admin' ? 999999 : user?.role === 'premium' ? 500 : 100);
 
   const key = `${userId}_${date}`;
   const existing = memoryDb.dailyUsage[key];
   if (existing) {
-    if (isFree && (existing.tokens_allocated > 100 || existing.tokens_remaining > 100)) {
-      existing.tokens_allocated = 100;
-      existing.tokens_remaining = Math.min(100, Math.max(0, 100 - (existing.tokens_used || 0)));
-      await persistToBlobStore();
-    }
     return { ...existing };
   }
 

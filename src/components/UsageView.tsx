@@ -68,7 +68,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const isEmpty = dailyUsage.remaining <= 0;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 pb-20 sm:pb-8 animate-fadeIn">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 sm:pb-8 animate-fadeIn">
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <button
@@ -76,10 +76,10 @@ export const UsageView: React.FC<UsageViewProps> = ({
             if (soundEnabled) playHapticTap();
             onBackToDashboard();
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 hover:bg-white text-xs font-bold text-chobee-navy-900 border border-slate-200/80 shadow-xs transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 border border-slate-200 shadow-2xs transition-all active:scale-95 group"
         >
-          <ArrowLeft className="w-4 h-4 text-chobee-pink-500" />
-          <span>Back to Study Dashboard</span>
+          <ArrowLeft className="w-4 h-4 text-chobee-pink-500 transition-transform group-hover:-translate-x-0.5" />
+          <span>Back to Dashboard</span>
         </button>
 
         <button
@@ -87,7 +87,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
             if (soundEnabled) playHapticTap();
             refreshUsage();
           }}
-          className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-500 hover:text-chobee-navy-900 border border-slate-200/80"
+          className="p-2 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 border border-slate-200 shadow-2xs transition-colors"
           title="Refresh token balance"
         >
           <RotateCcw className="w-4 h-4" />
@@ -95,28 +95,28 @@ export const UsageView: React.FC<UsageViewProps> = ({
       </div>
 
       {/* Main Token Gauge Card */}
-      <div className="glass-panel rounded-[32px] p-6 sm:p-8 border-2 border-white/90 shadow-glow-dual space-y-6">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-card space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100/90 text-chobee-pink-700 font-extrabold text-xs mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-chobee-pink-50 text-chobee-pink-700 font-bold text-xs mb-2">
               <Zap className="w-3.5 h-3.5 fill-chobee-pink-500 text-chobee-pink-500" />
               <span>Daily AI Study Credits</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-chobee-navy-950 font-display">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-display">
               {user?.role === 'admin' ? 'Unlimited Admin Credits' : `${dailyUsage.remaining} / ${dailyUsage.allocated} Tokens Available`}
             </h1>
-            <p className="text-xs text-slate-500 font-semibold mt-1">
-              Account plan: <span className="uppercase font-bold text-chobee-navy-900">{user?.role || 'free'}</span> (Refreshes automatically at 00:00 UTC)
+            <p className="text-xs text-slate-500 mt-1">
+              Account plan: <span className="uppercase font-bold text-slate-800">{user?.role || 'Free'}</span> • Resets automatically at 00:00 UTC
             </p>
           </div>
 
-          <div className="flex items-center gap-3 bg-white/80 border border-slate-200/90 px-4 py-3 rounded-2xl shadow-xs shrink-0">
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl shrink-0">
             <Clock className="w-5 h-5 text-chobee-blue-500" />
             <div>
-              <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
                 Daily Reset In
               </span>
-              <span className="text-sm font-black text-chobee-navy-900 font-mono">
+              <span className="text-sm font-bold text-slate-900 font-mono">
                 {dailyUsage.resetCountdown}
               </span>
             </div>
@@ -126,7 +126,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
         {/* Progress Bar */}
         {user?.role !== 'admin' && (
           <div className="space-y-2">
-            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/80 shadow-inner">
+            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   isEmpty
@@ -139,7 +139,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
               />
             </div>
 
-            <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+            <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
               <span>{dailyUsage.used} Tokens Used Today</span>
               <span>{percentage}% Remaining</span>
             </div>
@@ -148,20 +148,20 @@ export const UsageView: React.FC<UsageViewProps> = ({
 
         {/* Warning Banners */}
         {isLow && (
-          <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-800 text-xs flex items-center gap-3">
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-            <span className="font-semibold">
-              ⚠️ <strong>{dailyUsage.remaining} tokens remaining today</strong>. Choose your AI generations wisely!
+            <span className="font-medium">
+              <strong>{dailyUsage.remaining} tokens remaining today</strong>. Choose your AI generations wisely!
             </span>
           </div>
         )}
 
         {isEmpty && user?.role !== 'admin' && (
-          <div className="p-4 rounded-2xl bg-slate-100/90 border border-slate-200 text-slate-700 text-xs flex items-center gap-3">
+          <div className="p-4 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 text-xs flex items-center gap-3">
             <span className="text-xl">🌙</span>
             <div>
-              <strong className="block font-black text-chobee-navy-900">Daily limit reached for today</strong>
-              <span className="font-semibold">You've used all your study credits for today. Come back after the daily reset in {dailyUsage.resetCountdown}.</span>
+              <strong className="block font-bold text-slate-900">Daily limit reached for today</strong>
+              <span className="font-medium">You've used all your study credits for today. Come back after the daily reset in {dailyUsage.resetCountdown}.</span>
             </div>
           </div>
         )}
@@ -169,56 +169,56 @@ export const UsageView: React.FC<UsageViewProps> = ({
 
       {/* Token Cost Reference Cards */}
       <div className="space-y-3">
-        <h2 className="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-          <Info className="w-4 h-4 text-chobee-pink-500" />
-          <span>Configurable AI Action Costs</span>
+        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+          <Info className="w-4 h-4 text-slate-400" />
+          <span>AI Action Token Costs</span>
         </h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">📇</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">Flashcards</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">Flashcards</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.flashcards} Tokens
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">🎯</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">Quiz Exam</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">Quiz Exam</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.quiz} Tokens
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">📝</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">Summary</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">Summary</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.summary} Tokens
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">📖</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">Study Guide</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">Study Guide</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.studyGuide} Tokens
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">💬</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">AI Chat / Q</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">AI Chat / Q</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.chat} Tokens
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/80 border border-slate-200/90 text-center shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
             <span className="text-lg">🔄</span>
-            <div className="text-xs font-black text-chobee-navy-900 mt-1">Regenerate</div>
-            <div className="text-xs font-black text-chobee-pink-600 font-mono mt-0.5">
+            <div className="text-xs font-bold text-slate-900 mt-1">Regenerate</div>
+            <div className="text-xs font-bold text-chobee-pink-600 font-mono mt-0.5">
               {CLIENT_AI_COSTS.regenerate} Tokens
             </div>
           </div>
@@ -226,32 +226,32 @@ export const UsageView: React.FC<UsageViewProps> = ({
       </div>
 
       {/* Activity History Table */}
-      <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-white/90 shadow-sm space-y-4">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-chobee-navy-700" />
-            <h3 className="text-sm font-black text-chobee-navy-900 uppercase tracking-wider">
+            <History className="w-4 h-4 text-slate-600" />
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Recent AI Activity Log
             </h3>
           </div>
-          <span className="text-xs font-semibold text-slate-400">
+          <span className="text-xs font-medium text-slate-400">
             {logs.length} Transactions
           </span>
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center text-xs font-bold text-slate-400">
+          <div className="py-8 text-center text-xs font-medium text-slate-400">
             Loading activity history...
           </div>
         ) : logs.length === 0 ? (
-          <div className="py-8 text-center text-xs font-semibold text-slate-400">
-            No AI requests made today yet. Create a reviewer to start studying!
+          <div className="py-8 text-center text-xs font-medium text-slate-400">
+            No AI requests made today yet. Create a study set to start reviewing!
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200/80 text-slate-400 font-bold">
+                <tr className="border-b border-slate-200 text-slate-400 font-bold">
                   <th className="py-2.5 px-3">Time</th>
                   <th className="py-2.5 px-3">Action</th>
                   <th className="py-2.5 px-3">Tokens</th>
@@ -264,7 +264,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                     <td className="py-3 px-3 text-slate-500 font-mono">
                       {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="py-3 px-3 font-bold text-chobee-navy-900 capitalize">
+                    <td className="py-3 px-3 font-bold text-slate-900 capitalize">
                       {log.actionType}
                     </td>
                     <td className="py-3 px-3 font-mono font-bold">

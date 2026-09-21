@@ -73,6 +73,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
       const envAdmin = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
       const ADMIN_EMAILS = [
         'careysison21@gmail.com',
+        'ciarabernadette12@gmail.com',
         'carey@chobee.app',
         ...(envAdmin ? envAdmin.toLowerCase().split(',').map((e) => e.trim()) : [])
       ];
@@ -141,6 +142,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
       const envAdmin = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
       const ADMIN_EMAILS = [
         'careysison21@gmail.com',
+        'ciarabernadette12@gmail.com',
         'carey@chobee.app',
         ...(envAdmin ? envAdmin.toLowerCase().split(',').map((e) => e.trim()) : [])
       ];
@@ -170,6 +172,12 @@ export const handler: Handler = async (event: HandlerEvent) => {
           headers: JSON_HEADERS,
           body: JSON.stringify({ error: 'Incorrect password. Please try again or click "Forgot password?".' }),
         };
+      }
+
+      if (isWhitelistedAdmin && user.role !== 'admin') {
+        user.role = 'admin';
+        user.daily_token_limit = 999999;
+        await updateUser(user.id, { role: 'admin', daily_token_limit: 999999 });
       }
 
       await updateUser(user.id, { last_login: new Date().toISOString() });

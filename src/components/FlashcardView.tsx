@@ -354,208 +354,203 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
         </div>
       </div>
 
-      {/* 3D FLASHCARD: AUTHENTIC WIDE PINK LINED STATIONERY (NOT CUT OFF) */}
+       {/* 3D FLASHCARD: PRISTINE MINIMALIST AESTHETIC CARD */}
       {!sessionCompleted ? (
         <div 
-          className="relative w-full max-w-4xl mx-auto min-h-[440px] sm:min-h-[480px] md:min-h-[500px] select-none pt-2 deck-stack-shadow"
+          className="relative w-full max-w-3xl mx-auto min-h-[380px] sm:min-h-[440px] select-none pt-2 deck-stack-shadow"
           style={{ perspective: '1200px' }}
         >
-          {/* Floating XP Reward Indicator (Gizmo Style) */}
+          {/* Floating XP Reward Indicator */}
           {floatingXp && (
             <div key={floatingXp.id} className="absolute top-1/4 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-float-xp">
-              <div className="px-5 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white font-black text-sm sm:text-base shadow-2xl flex items-center gap-2 border-2 border-white/90 backdrop-blur-md">
+              <div className="px-4 py-2 rounded-full bg-chobee-navy-900 text-white font-bold text-xs sm:text-sm shadow-xl flex items-center gap-1.5 border border-slate-700">
                 <span>{floatingXp.text}</span>
               </div>
             </div>
           )}
-          <div key={safeIndex} className="animate-pop-card-in w-full h-full">
+
+          <div key={safeIndex} className="w-full h-full">
             <div
               onClick={handleFlip}
               style={{
                 transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                 transformStyle: 'preserve-3d',
-                transition: 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transition: 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-              className="relative w-full min-h-[440px] sm:min-h-[480px] md:min-h-[500px] cursor-pointer"
+              className="relative w-full min-h-[380px] sm:min-h-[440px] cursor-pointer"
             >
-              {/* FRONT FACE (Full Wide Pink Flashcard with Washi Tape & Notebook Lines) */}
+              {/* FRONT FACE */}
               <div 
                 style={{
                   backfaceVisibility: 'hidden',
                   WebkitBackfaceVisibility: 'hidden',
                   transform: 'rotateY(0deg)',
                   pointerEvents: isFlipped ? 'none' : 'auto',
-                  backgroundImage: "url('/assets/wide_pink_flashcard.png')",
-                  backgroundSize: '100% 100%',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
                 }}
-                className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl border-2 border-pink-300/80 pt-10 sm:pt-12 pb-6 sm:pb-8 px-8 sm:px-14 md:px-16"
+                className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-3xl bg-white border border-slate-200/90 shadow-card p-6 sm:p-10 transition-shadow hover:shadow-card-hover"
               >
-              {/* Front Header */}
-              <div className="flex items-center justify-between relative z-10">
-                <span className="text-xs font-bold uppercase tracking-wider text-chobee-pink-700 bg-white/95 px-3.5 py-1 rounded-full border border-pink-300 shadow-xs backdrop-blur-md">
-                  {currentCard.category || studySet.category}
-                </span>
+                {/* Front Header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-chobee-pink-600 bg-chobee-pink-50 px-3 py-1 rounded-full border border-chobee-pink-100">
+                    {currentCard.category || studySet.category}
+                  </span>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={handleSpeech}
-                    title="Audio Pronunciation"
-                    className="p-2 rounded-full bg-white/95 hover:bg-white text-slate-600 hover:text-chobee-pink-600 border border-pink-200 shadow-2xs transition-colors active:scale-90"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite();
-                    }}
-                    className={`p-2 rounded-full bg-white/95 hover:bg-white border border-pink-200 shadow-2xs transition-colors active:scale-90 ${
-                      currentCard.isFavorite ? 'text-amber-500 fill-amber-400' : 'text-slate-400 hover:text-amber-400'
-                    }`}
-                  >
-                    <Star className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Front Content */}
-              <div className="text-center py-4 px-4 space-y-3 relative z-10 my-auto">
-                <span className="text-[11px] font-black text-chobee-pink-600 uppercase tracking-widest bg-white/90 px-3.5 py-1 rounded-full border border-pink-200/90 shadow-2xs inline-block">
-                  Question / Term 🌸
-                </span>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-chobee-navy-950 font-display leading-snug drop-shadow-xs max-w-2xl mx-auto">
-                  {currentCard.front}
-                </h2>
-
-                {currentCard.hint && (
-                  <div className="pt-2">
-                    {showHint ? (
-                      <div className="inline-block p-3 rounded-2xl bg-white/95 border border-amber-300 text-xs font-medium text-amber-900 shadow-sm animate-fadeIn">
-                        💡 Clue: {currentCard.hint}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (soundEnabled) playHapticTap();
-                          setShowHint(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100/90 px-3.5 py-1 rounded-full border border-amber-300 shadow-2xs transition-all active:scale-95"
-                      >
-                        <HelpCircle className="w-3.5 h-3.5" />
-                        <span>Need a hint?</span>
-                      </button>
-                    )}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={handleSpeech}
+                      title="Audio Pronunciation"
+                      className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-chobee-navy-900 transition-colors active:scale-95"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite();
+                      }}
+                      className={`p-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors active:scale-95 ${
+                        currentCard.isFavorite ? 'text-amber-500 fill-amber-400' : 'text-slate-400 hover:text-amber-400'
+                      }`}
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Front Footer */}
-              <div className="flex items-center justify-between text-xs text-chobee-navy-900/80 pt-2 border-t border-pink-300/60 relative z-10 bg-white/80 backdrop-blur-sm -mx-2 px-3.5 py-2 rounded-2xl border border-pink-200/70 shadow-2xs">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Keyboard className="w-3.5 h-3.5 text-chobee-pink-500" />
-                  <span>Tap or Spacebar to Flip</span>
-                </span>
-                <span className="text-chobee-pink-600 font-black font-display">
-                  Turn card for answer →
-                </span>
-              </div>
-            </div>
+                {/* Front Content */}
+                <div className="text-center py-6 px-4 space-y-4 my-auto">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Question / Term
+                  </span>
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-chobee-navy-900 font-display leading-snug max-w-xl mx-auto">
+                    {currentCard.front}
+                  </h2>
 
-            {/* BACK FACE (Full Wide Pink Flashcard with Washi Tape & Notebook Lines) */}
-            <div 
-              style={{
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                transform: 'rotateY(180deg)',
-                pointerEvents: isFlipped ? 'auto' : 'none',
-                backgroundImage: "url('/assets/wide_pink_flashcard.png')",
-                backgroundSize: '100% 100%',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center',
-              }}
-              className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl border-2 border-pink-300/80 pt-10 sm:pt-12 pb-6 sm:pb-8 px-8 sm:px-14 md:px-16"
-            >
-              {/* Back Header */}
-              <div className="flex items-center justify-between relative z-10">
-                <span className="text-xs font-bold uppercase tracking-wider text-chobee-pink-700 bg-white/95 px-3.5 py-1 rounded-full border border-pink-300 shadow-xs backdrop-blur-md">
-                  Answer & Concept 🎀
-                </span>
+                  {currentCard.hint && (
+                    <div className="pt-2">
+                      {showHint ? (
+                        <div className="inline-block p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900 animate-fadeIn">
+                          💡 Clue: {currentCard.hint}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (soundEnabled) playHapticTap();
+                            setShowHint(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-amber-700 bg-slate-50 hover:bg-amber-50 px-3 py-1 rounded-full border border-slate-200 hover:border-amber-200 transition-all active:scale-95"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          <span>Need a hint?</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSpeech}
-                    title="Audio Pronunciation"
-                    className="p-2 rounded-full bg-white/95 hover:bg-white text-slate-600 hover:text-chobee-pink-600 border border-pink-200 shadow-2xs transition-colors active:scale-90"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (soundEnabled) playHapticTap();
-                      setShowAiModal(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/95 hover:bg-white text-xs font-bold text-chobee-pink-600 border border-pink-300 shadow-xs transition-all active:scale-95"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-chobee-pink-500" />
-                    <span>AI Explain (Taglish)</span>
-                  </button>
+                {/* Front Footer */}
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Keyboard className="w-3.5 h-3.5" />
+                    <span>Space to flip</span>
+                  </span>
+                  <span className="text-chobee-pink-600 font-semibold flex items-center gap-1">
+                    <span>Show answer</span>
+                    <span>&rarr;</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Back Content */}
-              <div className="text-center py-4 px-4 space-y-3 relative z-10 my-auto">
-                <span className="text-[11px] font-black text-chobee-pink-600 uppercase tracking-widest bg-white/90 px-3.5 py-1 rounded-full border border-pink-200/90 shadow-2xs inline-block">
-                  Definition & Explanation ✨
-                </span>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-chobee-navy-950 leading-relaxed font-sans whitespace-pre-line max-h-56 overflow-y-auto px-4 max-w-2xl mx-auto drop-shadow-xs">
-                  {currentCard.back}
-                </p>
-              </div>
+              {/* BACK FACE */}
+              <div 
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  pointerEvents: isFlipped ? 'auto' : 'none',
+                }}
+                className="absolute inset-0 w-full h-full flex flex-col justify-between rounded-3xl bg-white border border-slate-200/90 shadow-card p-6 sm:p-10 transition-shadow hover:shadow-card-hover"
+              >
+                {/* Back Header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-chobee-blue-600 bg-chobee-blue-50 px-3 py-1 rounded-full border border-chobee-blue-100">
+                    Definition & Concept
+                  </span>
 
-              {/* Back Footer */}
-              <div className="flex items-center justify-between text-xs text-chobee-navy-900/80 pt-2 border-t border-pink-300/60 relative z-10 bg-white/80 backdrop-blur-sm -mx-2 px-3.5 py-2 rounded-2xl border border-pink-200/70 shadow-2xs">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Keyboard className="w-3.5 h-3.5 text-chobee-pink-500" />
-                  <span>Tap or Spacebar to Flip</span>
-                </span>
-                <span className="text-chobee-pink-600 font-black font-display">
-                  ← Back to question
-                </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSpeech}
+                      title="Audio Pronunciation"
+                      className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-chobee-navy-900 transition-colors active:scale-95"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (soundEnabled) playHapticTap();
+                        setShowAiModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-chobee-pink-50 hover:bg-chobee-pink-100 text-xs font-bold text-chobee-pink-600 border border-chobee-pink-200 transition-all active:scale-95"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>AI Explain</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Back Content */}
+                <div className="text-center py-6 px-4 space-y-3 my-auto">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Answer
+                  </span>
+                  <p className="text-base sm:text-lg md:text-xl font-medium text-slate-800 leading-relaxed font-sans whitespace-pre-line max-h-56 overflow-y-auto px-4 max-w-xl mx-auto">
+                    {currentCard.back}
+                  </p>
+                </div>
+
+                {/* Back Footer */}
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Keyboard className="w-3.5 h-3.5" />
+                    <span>Space to flip</span>
+                  </span>
+                  <span className="text-chobee-pink-600 font-semibold flex items-center gap-1">
+                    <span>&larr;</span>
+                    <span>Back to question</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       ) : (
         /* Deck Completed Screen */
-        <div className="glass-panel rounded-3xl p-8 sm:p-12 text-center space-y-6 border border-pink-200 shadow-soft-pink animate-fadeIn">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 mx-auto flex items-center justify-center text-4xl shadow-glow-dual animate-bounce">
+        <div className="bg-white rounded-3xl p-8 sm:p-12 text-center space-y-6 border border-slate-200/90 shadow-card animate-fadeIn max-w-xl mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-chobee-pink-50 text-chobee-pink-500 mx-auto flex items-center justify-center text-3xl shadow-xs">
             🎉
           </div>
-          <div className="space-y-2 max-w-md mx-auto">
+          <div className="space-y-2">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-chobee-navy-900 font-display">
-              Ang galing mo, Mayor Cia! 🌸
+              Deck Completed!
             </h2>
-            <p className="text-sm text-chobee-navy-700 leading-relaxed">
-              Natapos mo ang lahat ng {cards.length} cards sa reviewer na ito. Super proud si Baby Bear sa sipag mo mag-aral!
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              You reviewed all {cards.length} flashcards in this deck. Great job keeping your streak active!
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               onClick={handleRestart}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-chobee-navy-800 font-bold text-sm border border-slate-200 shadow-sm transition-all active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-chobee-navy-900 font-semibold text-xs border border-slate-200 transition-all active:scale-95"
             >
               <RotateCw className="w-4 h-4 text-chobee-pink-500" />
-              <span>Review Deck Again</span>
+              <span>Review Again</span>
             </button>
             <button
               onClick={() => onSwitchMode('quiz')}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-bold text-sm shadow-soft-pink transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white font-semibold text-xs shadow-soft-pink transition-all active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Take Practice Quiz</span>
@@ -566,120 +561,87 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
 
       {/* Navigation & Spaced Repetition Rating Controls */}
       {!sessionCompleted && (
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-2 max-w-3xl mx-auto">
           {isFlipped ? (
-            <div className="space-y-2.5 animate-pop-card-in max-w-2xl mx-auto">
+            <div className="space-y-2.5 animate-fadeIn">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-chobee-navy-800 flex items-center gap-1.5">
-                  <span>How well did you know this, Mayor Cia?</span>
-                  <span className="text-pink-500">🌸</span>
+                <span className="text-xs font-bold text-slate-600">
+                  How well did you remember this?
                 </span>
-                <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">
-                  Shortcuts: Press 1, 2, 3, or 4
+                <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                  Keyboard shortcuts: 1, 2, 3, 4
                 </span>
               </div>
 
-              {/* 4 Gamified Rating Buttons: Again, Hard, Medium, Easy */}
+              {/* 4 Gamified Rating Buttons: Again, Hard, Good, Easy */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <button
                   type="button"
                   onClick={() => handleRating('again')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-rose-50/90 border-2 border-rose-200 hover:border-rose-400 text-rose-700 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
+                  className="p-3 rounded-2xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-700 font-bold flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs"
                 >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
+                  <span className="text-sm flex items-center gap-1.5">
                     <span>🔄</span>
                     <span>Again</span>
                   </span>
-                  <span className="text-[10px] text-rose-500 font-bold bg-rose-100/70 px-2 py-0.5 rounded-full group-hover:bg-rose-200/80">
-                    [1] Review Soon
+                  <span className="text-[10px] text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                    [1] Soon
                   </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleRating('hard')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-amber-50/90 border-2 border-amber-200 hover:border-amber-400 text-amber-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
+                  className="p-3 rounded-2xl bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-800 font-bold flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs"
                 >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
+                  <span className="text-sm flex items-center gap-1.5">
                     <span>⚡</span>
                     <span>Hard</span>
                   </span>
-                  <span className="text-[10px] text-amber-600 font-bold bg-amber-100/70 px-2 py-0.5 rounded-full group-hover:bg-amber-200/80">
-                    [2] +5 XP
+                  <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                    [2] 1 day
                   </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleRating('good')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-sky-50/90 border-2 border-sky-200 hover:border-sky-400 text-sky-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs group"
+                  className="p-3 rounded-2xl bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-blue-700 font-bold flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs"
                 >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
+                  <span className="text-sm flex items-center gap-1.5">
                     <span>👍</span>
-                    <span>Medium</span>
+                    <span>Good</span>
                   </span>
-                  <span className="text-[10px] text-sky-600 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full group-hover:bg-sky-200/80">
-                    [3] +15 XP
+                  <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                    [3] 3 days
                   </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleRating('easy')}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white hover:bg-emerald-50/95 border-2 border-emerald-300 hover:border-emerald-400 text-emerald-800 font-black flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs ring-2 ring-emerald-200/60 group"
+                  className="p-3 rounded-2xl bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-emerald-700 font-bold flex flex-col items-center gap-1 active:scale-95 transition-all shadow-xs"
                 >
-                  <span className="text-sm sm:text-base flex items-center gap-1.5">
+                  <span className="text-sm flex items-center gap-1.5">
                     <span>🌟</span>
                     <span>Easy</span>
                   </span>
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-full group-hover:bg-emerald-200">
-                    [4] +25 XP ✨
+                  <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                    [4] 5 days
                   </span>
-                </button>
-              </div>
-
-              {/* Sub-navigation row to flip back or jump without rating */}
-              <div className="flex items-center justify-between px-1 pt-1">
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  disabled={safeIndex === 0}
-                  className={`text-xs font-bold flex items-center gap-1 transition-colors active:scale-95 ${
-                    safeIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:text-chobee-navy-900'
-                  }`}
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Previous card</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFlip}
-                  className="text-xs font-bold text-chobee-pink-600 hover:text-chobee-pink-700 flex items-center gap-1 transition-colors active:scale-95"
-                >
-                  <span>Flip to front</span>
-                  <span className="text-[10px] text-pink-400 font-normal hidden sm:inline">(Space)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="text-xs font-bold text-slate-500 hover:text-chobee-navy-900 flex items-center gap-1 transition-colors active:scale-95"
-                >
-                  <span>Skip / Next</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-2.5 sm:gap-3 max-w-xl mx-auto">
+            /* Front Navigation Bar: Prev, Flip, Next */
+            <div className="flex items-center justify-between gap-3 pt-1">
               <button
                 onClick={handlePrev}
                 disabled={safeIndex === 0}
-                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
                   safeIndex === 0
                     ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
-                    : 'bg-white hover:bg-slate-50 text-chobee-navy-900 border border-slate-200 shadow-xs'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs'
                 }`}
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -688,17 +650,17 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
 
               <button
                 onClick={handleFlip}
-                className="flex-1 max-w-xs px-4 sm:px-8 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-rose-500 hover:from-chobee-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-black shadow-soft-pink hover:shadow-glow-dual transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
+                className="flex-1 max-w-xs px-6 py-2.5 rounded-xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white text-xs sm:text-sm font-semibold shadow-soft-pink transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <span>Show Answer</span>
-                <span className="text-[10px] opacity-80 font-normal bg-white/20 px-2 py-0.5 rounded-full hidden sm:inline">Space</span>
+                <span>Flip Card</span>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md hidden sm:inline">Space</span>
               </button>
 
               <button
                 onClick={handleNext}
-                className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-chobee-navy-900 hover:bg-chobee-navy-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-chobee-navy-900 hover:bg-chobee-navy-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-95"
               >
-                <span>{safeIndex === cards.length - 1 ? 'Finish Deck' : 'Next'}</span>
+                <span>{safeIndex === cards.length - 1 ? 'Finish' : 'Next'}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -706,48 +668,46 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
         </div>
       )}
 
-      {/* Warm Taglish "AI Explain" Modal */}
+      {/* AI Concept Breakdown Modal */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-chobee-navy-950/60 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 sm:p-8 border border-pink-200 shadow-glow-dual space-y-4">
-            <div className="w-10 h-1.5 rounded-full bg-slate-300 mx-auto -mt-2 mb-2" />
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-chobee-navy-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-4 animate-scaleIn">
             <button
               onClick={() => setShowAiModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-chobee-navy-900 transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-400 to-blue-400 flex items-center justify-center text-xl shadow-soft-pink">
-                🧸
+              <div className="w-10 h-10 rounded-2xl bg-chobee-pink-50 text-chobee-pink-600 flex items-center justify-center text-xl">
+                ✨
               </div>
               <div>
                 <h3 className="font-display font-extrabold text-lg text-chobee-navy-900">
-                  Chobee’s Taglish AI Breakdown
+                  AI Concept Breakdown
                 </h3>
-                <p className="text-xs text-chobee-pink-600 font-semibold">
-                  Personalized explanation for Mayor Cia
+                <p className="text-xs text-slate-500">
+                  Conceptual explanation and memory cues
                 </p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-pink-50/70 border border-pink-200 text-xs font-bold text-chobee-navy-800">
-              Topic: {currentCard.front}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-bold text-chobee-navy-900">
+              Concept: {currentCard.front}
             </div>
 
-            <p className="text-sm text-chobee-navy-800 leading-relaxed font-medium bg-white/90 p-4 rounded-2xl border border-slate-100 shadow-xs">
+            <p className="text-sm text-slate-700 leading-relaxed font-normal bg-[#FAF9F6] p-4 rounded-xl border border-slate-200/60">
               {currentCard.aiExplanation ||
-                `Mayor, ganito lang yan: Ang "${currentCard.front}" ay tungkol sa ${currentCard.back.toLowerCase()}. Tandaan mo lang kung paano ito ginagamit sa totoong buhay para hindi mo makalimutan sa exam. You are doing amazing! 🧸🩵`}
+                `Here is a simple breakdown of "${currentCard.front}": ${currentCard.back} Think about how this applies in real-world scenarios to help remember it during exam time! 🌸`}
             </p>
 
             <div className="flex items-center justify-end pt-2">
               <button
                 onClick={() => setShowAiModal(false)}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 text-white text-xs font-bold shadow-soft-pink active:scale-95"
+                className="px-5 py-2 rounded-xl bg-chobee-pink-500 hover:bg-chobee-pink-600 text-white text-xs font-semibold shadow-soft-pink active:scale-95"
               >
-                Got it, Baby Bear! 🌸
+                Understood!
               </button>
             </div>
           </div>

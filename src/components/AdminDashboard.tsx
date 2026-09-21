@@ -276,6 +276,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleToggleDisable = async (targetUser: AdminUserItem) => {
     if (soundEnabled) playHapticTap();
     const newStatus = !targetUser.isDisabled;
+    
+    // Direct Supabase update if configured
+    const supabase = getSupabase();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('profiles').update({ is_disabled: newStatus }).eq('id', targetUser.id);
+      } catch (sbErr) {
+        console.warn('Supabase direct toggle disable fallback:', sbErr);
+      }
+    }
+
     try {
       await apiRequest('/api/admin/update', {
         method: 'POST',
@@ -292,12 +303,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setSelectedUserForDetails((prev) => (prev ? { ...prev, isDisabled: newStatus } : null));
       }
     } catch (e: any) {
-      alert(e?.message || 'Failed to update user status');
+      // If direct Supabase update succeeded, still reflect change
+      if (isSupabaseConfigured() && supabase) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === targetUser.id ? { ...u, isDisabled: newStatus } : u))
+        );
+      } else {
+        alert(e?.message || 'Failed to update user status');
+      }
     }
   };
 
   const handleSaveTokenLimit = async (targetUserId: string) => {
     if (soundEnabled) playHapticTap();
+
+    // Direct Supabase update if configured
+    const supabase = getSupabase();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('profiles').update({ daily_token_limit: editTokenLimit }).eq('id', targetUserId);
+        const today = new Date().toISOString().split('T')[0];
+        await supabase.from('daily_usage').update({
+          tokens_allocated: editTokenLimit,
+          tokens_remaining: editTokenLimit,
+        }).eq('user_id', targetUserId).eq('date', today);
+      } catch (sbErr) {
+        console.warn('Supabase direct token limit fallback:', sbErr);
+      }
+    }
+
     try {
       await apiRequest('/api/admin/update', {
         method: 'POST',
@@ -337,13 +371,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       setEditingUserId(null);
     } catch (e: any) {
-      alert(e?.message || 'Failed to update token limit');
+      if (isSupabaseConfigured() && supabase) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === targetUserId
+              ? {
+                  ...u,
+                  dailyTokenLimit: editTokenLimit,
+                  todayUsage: {
+                    used: u.todayUsage?.used || 0,
+                    remaining: Math.max(0, editTokenLimit - (u.todayUsage?.used || 0)),
+                  },
+                }
+              : u
+          )
+        );
+        setEditingUserId(null);
+      } else {
+        alert(e?.message || 'Failed to update token limit');
+      }
     }
   };
 
   const handleRoleChange = async (targetUser: AdminUserItem, newRole: string) => {
     if (soundEnabled) playHapticTap();
     const tokenLimit = newRole === 'admin' ? 999999 : newRole === 'premium' ? 500 : 100;
+
+    // Direct Supabase update if configured
+    const supabase = getSupabase();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('profiles').update({
+          role: newRole,
+          plan: newRole === 'admin' ? 'unlimited' : newRole === 'premium' ? 'pro' : 'free',
+          daily_token_limit: tokenLimit,
+        }).eq('id', targetUser.id);
+
+        const today = new Date().toISOString().split('T')[0];
+        await supabase.from('daily_usage').update({
+          tokens_allocated: tokenLimit,
+          tokens_remaining: tokenLimit,
+        }).eq('user_id', targetUser.id).eq('date', today);
+      } catch (sbErr) {
+        console.warn('Supabase direct role change fallback:', sbErr);
+      }
+    }
+
     try {
       await apiRequest('/api/admin/update', {
         method: 'POST',
@@ -381,7 +454,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         );
       }
     } catch (e: any) {
-      alert(e?.message || 'Failed to update user role');
+      if (isSupabaseConfigured() && supabase) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === targetUser.id
+              ? {
+                  ...u,
+                  role: newRole,
+                  dailyTokenLimit: tokenLimit,
+                  todayUsage: {
+                    used: u.todayUsage?.used || 0,
+                    remaining: Math.max(0, tokenLimit - (u.todayUsage?.used || 0)),
+                  },
+                }
+              : u
+          )
+        );
+      } else {
+        alert(e?.message || 'Failed to update user role');
+      }
     }
   };
 
