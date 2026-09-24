@@ -68,7 +68,8 @@ export const handler: Handler = async (event: HandlerEvent) => {
               referral_code: p.referral_code,
               referred_by: p.referred_by,
               created_at: p.created_at,
-              last_login: p.last_login_at,
+              last_login: p.last_login_at || p.last_seen_at || p.created_at,
+              last_seen_at: p.last_seen_at || p.last_login_at,
               is_disabled: p.is_disabled,
             }));
             const emails = new Set(mapped.map((m) => m.email.toLowerCase()));
@@ -144,7 +145,8 @@ export const handler: Handler = async (event: HandlerEvent) => {
                 referralCode: p.referral_code,
                 referredBy: p.referred_by,
                 createdAt: p.created_at,
-                lastLogin: p.last_login_at,
+                lastLogin: p.last_login_at || p.last_seen_at || p.created_at,
+                lastSeenAt: p.last_seen_at || p.last_login_at,
                 isDisabled: Boolean(p.is_disabled),
                 todayUsage: {
                   used: uUsage?.tokens_used || 0,
@@ -175,7 +177,8 @@ export const handler: Handler = async (event: HandlerEvent) => {
             referralCode: u.referral_code,
             referredBy: u.referred_by,
             createdAt: u.created_at,
-            lastLogin: u.last_login,
+            lastLogin: u.last_login || u.created_at,
+            lastSeenAt: (u as any).last_seen_at || u.last_login || u.created_at,
             isDisabled: u.is_disabled,
             todayUsage: {
               used: usage.tokens_used,

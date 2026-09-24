@@ -95,10 +95,13 @@ export const startPresenceTracking = (user: { id: string; email: string; display
         { onConflict: 'user_id, session_id' }
       );
 
-      // Update profiles last_seen_at
+      // Update profiles last_seen_at and last_login_at
       await client
         .from('profiles')
-        .update({ last_seen_at: new Date().toISOString() })
+        .update({ 
+          last_seen_at: new Date().toISOString(),
+          last_login_at: new Date().toISOString()
+        })
         .eq('id', user.id);
     } catch (err) {
       // Heartbeat silent fallback
@@ -143,7 +146,8 @@ export const subscribeToAdminPresence = (
   const supabase = getSupabase();
   if (!supabase) return () => {};
 
-  const channel = supabase.channel('chobee-admin-presence-listener');
+  // Connect to the exact same presence room where users track their sessions
+  const channel = supabase.channel('chobee-presence-room');
 
   channel
     .on('presence', { event: 'sync' }, () => {
@@ -174,7 +178,8 @@ export const subscribeToAdminPresence = (
 export const computeUserPresence = (
   userId: string,
   liveSessions: PresenceSession[] | undefined,
-  lastSeenAt?: string
+  lastSeenAt?: string,
+  lastLogin?: string
 ): AggregatedUserPresence => {
   const activeSessions = liveSessions || [];
   const hasActiveSession = activeSessions.length > 0;
@@ -196,9 +201,14 @@ export const computeUserPresence = (
     };
   }
 
-  // Not currently online: check last_seen_at
-  if (lastSeenAt) {
-    const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+  // Not currently online: determine the latest known activity timestamp
+  const tSeen = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
+  const tLogin = lastLogin ? new Date(lastLogin).getTime() : 0;
+  const maxTimestamp = Math.max(tSeen, tLogin);
+
+  if (maxTimestamp > 0 && !isNaN(maxTimestamp)) {
+    const effectiveTime = new Date(maxTimestamp).toISOString();
+    const diffMs = Math.max(0, Date.now() - maxTimestamp);
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
     if (diffMinutes <= 5) {
@@ -208,7 +218,7 @@ export const computeUserPresence = (
         statusText: diffMinutes <= 1 ? 'Active just now' : `Active ${diffMinutes}m ago`,
         activeSessionsCount: 0,
         devices: [],
-        lastSeenAt,
+        lastSeenAt: effectiveTime,
       };
     }
 
@@ -219,7 +229,7 @@ export const computeUserPresence = (
         statusText: `Offline ${diffMinutes}m ago`,
         activeSessionsCount: 0,
         devices: [],
-        lastSeenAt,
+        lastSeenAt: effectiveTime,
       };
     }
 
@@ -231,7 +241,7 @@ export const computeUserPresence = (
         statusText: `Offline ${diffHours}h ago`,
         activeSessionsCount: 0,
         devices: [],
-        lastSeenAt,
+        lastSeenAt: effectiveTime,
       };
     }
 
@@ -242,7 +252,7 @@ export const computeUserPresence = (
       statusText: `Offline ${diffDays}d ago`,
       activeSessionsCount: 0,
       devices: [],
-      lastSeenAt,
+      lastSeenAt: effectiveTime,
     };
   }
 
@@ -252,6 +262,5 @@ export const computeUserPresence = (
     statusText: 'Offline',
     activeSessionsCount: 0,
     devices: [],
-    lastSeenAt,
   };
 };

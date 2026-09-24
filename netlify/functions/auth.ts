@@ -232,6 +232,10 @@ export const handler: Handler = async (event: HandlerEvent) => {
         return { statusCode: 403, headers: JSON_HEADERS, body: JSON.stringify({ error: 'Account disabled.' }) };
       }
 
+      const nowIso = new Date().toISOString();
+      await updateUser(user.id, { last_login: nowIso });
+      user.last_login = nowIso;
+
       const today = getTodayString();
       const usage = await getDailyUsage(user.id, today);
       const countdown = getResetCountdown();

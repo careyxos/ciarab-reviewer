@@ -480,7 +480,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const usersWithPresence = useMemo(() => {
     return users.map((u) => {
       const liveSessions = presenceMap.get(u.id);
-      const presence = computeUserPresence(u.id, liveSessions, u.lastSeenAt || u.lastLogin);
+      const presence = computeUserPresence(u.id, liveSessions, u.lastSeenAt, u.lastLogin);
       return {
         ...u,
         presence,
@@ -957,14 +957,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {computeUserPresence(
                     selectedUserForDetails.id,
                     presenceMap.get(selectedUserForDetails.id),
-                    selectedUserForDetails.lastSeenAt || selectedUserForDetails.lastLogin
+                    selectedUserForDetails.lastSeenAt,
+                    selectedUserForDetails.lastLogin
                   ).statusText}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-500">Last Login:</span>
+                <span className="font-bold text-slate-500">Last Active:</span>
                 <span className="font-mono text-slate-700">
-                  {selectedUserForDetails.lastLogin ? new Date(selectedUserForDetails.lastLogin).toLocaleString() : 'Never'}
+                  {(() => {
+                    const tSeen = selectedUserForDetails.lastSeenAt ? new Date(selectedUserForDetails.lastSeenAt).getTime() : 0;
+                    const tLogin = selectedUserForDetails.lastLogin ? new Date(selectedUserForDetails.lastLogin).getTime() : 0;
+                    const maxTime = Math.max(tSeen, tLogin);
+                    if (maxTime > 0 && !isNaN(maxTime)) {
+                      return new Date(maxTime).toLocaleString();
+                    }
+                    return selectedUserForDetails.createdAt ? new Date(selectedUserForDetails.createdAt).toLocaleString() : 'Never';
+                  })()}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
