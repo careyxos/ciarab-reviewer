@@ -185,6 +185,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     fetchAdminData();
+    const refreshTimer = setInterval(fetchAdminData, 30000);
+    return () => clearInterval(refreshTimer);
   }, []);
 
   // Subscribe to Realtime Presence Channel
@@ -478,15 +480,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Compute live presence for all users
   const usersWithPresence = useMemo(() => {
+    const currentUserId = user?.id;
+    const currentUserEmail = user?.email?.toLowerCase();
+
     return users.map((u) => {
+      const isSelf = Boolean(
+        (currentUserId && u.id === currentUserId) ||
+        (currentUserEmail && u.email && u.email.toLowerCase() === currentUserEmail)
+      );
       const liveSessions = presenceMap.get(u.id);
-      const presence = computeUserPresence(u.id, liveSessions, u.lastSeenAt, u.lastLogin);
+      const presence = computeUserPresence(u.id, liveSessions, u.lastSeenAt, u.lastLogin, isSelf);
       return {
         ...u,
         presence,
       };
     });
-  }, [users, presenceMap]);
+  }, [users, presenceMap, user]);
 
   // Online count calculation
   const onlineCount = useMemo(() => {
@@ -954,12 +963,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-500">Live Presence:</span>
                 <span className="font-extrabold text-chobee-navy-900">
-                  {computeUserPresence(
-                    selectedUserForDetails.id,
-                    presenceMap.get(selectedUserForDetails.id),
-                    selectedUserForDetails.lastSeenAt,
-                    selectedUserForDetails.lastLogin
-                  ).statusText}
+                  {(() => {
+                    const currentUserId = user?.id;
+                    const currentUserEmail = user?.email?.toLowerCase();
+                    const isSelf = Boolean(
+                      (currentUserId && selectedUserForDetails.id === currentUserId) ||
+                      (currentUserEmail && selectedUserForDetails.email && selectedUserForDetails.email.toLowerCase() === currentUserEmail)
+                    );
+                    return computeUserPresence(
+                      selectedUserForDetails.id,
+                      presenceMap.get(selectedUserForDetails.id),
+                      selectedUserForDetails.lastSeenAt,
+                      selectedUserForDetails.lastLogin,
+                      isSelf
+                    ).statusText;
+                  })()}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">

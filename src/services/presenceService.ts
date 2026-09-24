@@ -30,6 +30,9 @@ export interface AggregatedUserPresence {
 
 let activeChannel: RealtimeChannel | null = null;
 let heartbeatInterval: any = null;
+let currentLocalSession: PresenceSession | null = null;
+
+export const getLocalPresenceSession = (): PresenceSession | null => currentLocalSession;
 
 // ==============================================================================
 // CLIENT-SIDE PRESENCE TRACKING (Per Tab / Device)
@@ -46,14 +49,6 @@ export const startPresenceTracking = (user: { id: string; email: string; display
   const deviceType = getDeviceType();
   const browserInfo = getBrowserInfo();
 
-  const channel = supabase.channel('chobee-presence-room', {
-    config: {
-      presence: {
-        key: user.id,
-      },
-    },
-  });
-
   const sessionPayload: PresenceSession = {
     userId: user.id,
     email: user.email,
@@ -63,6 +58,16 @@ export const startPresenceTracking = (user: { id: string; email: string; display
     sessionId,
     onlineAt: new Date().toISOString(),
   };
+
+  currentLocalSession = sessionPayload;
+
+  const channel = supabase.channel('chobee-presence-room', {
+    config: {
+      presence: {
+        key: user.id,
+      },
+    },
+  });
 
   channel
     .on('presence', { event: 'sync' }, () => {
@@ -127,6 +132,8 @@ export const stopPresenceTracking = () => {
     heartbeatInterval = null;
   }
 
+  currentLocalSession = null;
+
   if (activeChannel) {
     try {
       activeChannel.untrack();
@@ -144,29 +151,63 @@ export const subscribeToAdminPresence = (
   onPresenceUpdate: (presenceMap: Map<string, PresenceSession[]>) => void
 ): (() => void) => {
   const supabase = getSupabase();
+
+  const buildAndEmitPresence = (chan?: RealtimeChannel | null) => {
+    const presenceMap = new Map<string, PresenceSession[]>();
+
+    // Always include current local user session if active
+    if (currentLocalSession) {
+      presenceMap.set(currentLocalSession.userId, [currentLocalSession]);
+    }
+
+    if (chan) {
+      try {
+        const state = chan.presenceState<PresenceSession>();
+        Object.entries(state).forEach(([userId, sessions]) => {
+          if (Array.isArray(sessions) && sessions.length > 0) {
+            presenceMap.set(userId, sessions);
+          }
+        });
+      } catch (err) {}
+    }
+
+    onPresenceUpdate(presenceMap);
+  };
+
+  // Immediate initial emission
+  buildAndEmitPresence(activeChannel);
+
   if (!supabase) return () => {};
 
   // Connect to the exact same presence room where users track their sessions
-  const channel = supabase.channel('chobee-presence-room');
+  const channel = activeChannel || supabase.channel('chobee-presence-room', {
+    config: {
+      presence: {
+        key: currentLocalSession?.userId || 'admin-dashboard',
+      },
+    },
+  });
+
+  const syncHandler = () => {
+    buildAndEmitPresence(channel);
+  };
 
   channel
-    .on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<PresenceSession>();
-      const presenceMap = new Map<string, PresenceSession[]>();
+    .on('presence', { event: 'sync' }, syncHandler)
+    .on('presence', { event: 'join' }, syncHandler)
+    .on('presence', { event: 'leave' }, syncHandler);
 
-      Object.entries(state).forEach(([userId, sessions]) => {
-        if (Array.isArray(sessions) && sessions.length > 0) {
-          presenceMap.set(userId, sessions);
-        }
-      });
-
-      onPresenceUpdate(presenceMap);
-    })
-    .subscribe();
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      buildAndEmitPresence(channel);
+    }
+  });
 
   return () => {
     try {
-      channel.unsubscribe();
+      if (channel !== activeChannel) {
+        channel.unsubscribe();
+      }
     } catch (e) {}
   };
 };
@@ -179,29 +220,39 @@ export const computeUserPresence = (
   userId: string,
   liveSessions: PresenceSession[] | undefined,
   lastSeenAt?: string,
-  lastLogin?: string
+  lastLogin?: string,
+  isSelf?: boolean
 ): AggregatedUserPresence => {
   const activeSessions = liveSessions || [];
   const hasActiveSession = activeSessions.length > 0;
 
-  if (hasActiveSession) {
-    const sessionCount = activeSessions.length;
+  // 1. If user is currently online via WebSocket sessions OR is the active user on this client
+  if (hasActiveSession || isSelf) {
+    const sessionCount = Math.max(1, activeSessions.length);
+    const nowIso = new Date().toISOString();
     return {
       userId,
       status: 'online',
       statusText: sessionCount > 1 ? `Online (${sessionCount} devices)` : 'Online',
       activeSessionsCount: sessionCount,
-      devices: activeSessions.map((s) => ({
-        sessionId: s.sessionId,
-        deviceType: s.deviceType || 'Desktop',
-        browserInfo: s.browserInfo || 'Browser',
-        onlineAt: s.onlineAt,
-      })),
-      lastSeenAt: new Date().toISOString(),
+      devices: activeSessions.length > 0
+        ? activeSessions.map((s) => ({
+            sessionId: s.sessionId,
+            deviceType: s.deviceType || 'Desktop',
+            browserInfo: s.browserInfo || 'Browser',
+            onlineAt: s.onlineAt,
+          }))
+        : [{
+            sessionId: 'current-active-session',
+            deviceType: getDeviceType(),
+            browserInfo: getBrowserInfo(),
+            onlineAt: nowIso,
+          }],
+      lastSeenAt: nowIso,
     };
   }
 
-  // Not currently online: determine the latest known activity timestamp
+  // 2. Check latest timestamp (last_seen_at or last_login_at)
   const tSeen = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
   const tLogin = lastLogin ? new Date(lastLogin).getTime() : 0;
   const maxTimestamp = Math.max(tSeen, tLogin);
@@ -211,17 +262,37 @@ export const computeUserPresence = (
     const diffMs = Math.max(0, Date.now() - maxTimestamp);
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-    if (diffMinutes <= 5) {
+    // If heartbeat or login was received within the last 2.5 minutes (heartbeat is sent every 25s),
+    // this user is actively online!
+    if (diffMs <= 150000) {
+      return {
+        userId,
+        status: 'online',
+        statusText: diffMs <= 40000 ? 'Online' : 'Online (Active just now)',
+        activeSessionsCount: 1,
+        devices: [{
+          sessionId: 'recent-heartbeat',
+          deviceType: 'Web',
+          browserInfo: 'Browser',
+          onlineAt: effectiveTime,
+        }],
+        lastSeenAt: effectiveTime,
+      };
+    }
+
+    // Between 2.5 minutes and 15 minutes = Recent
+    if (diffMinutes <= 15) {
       return {
         userId,
         status: 'recent',
-        statusText: diffMinutes <= 1 ? 'Active just now' : `Active ${diffMinutes}m ago`,
+        statusText: `Active ${diffMinutes}m ago`,
         activeSessionsCount: 0,
         devices: [],
         lastSeenAt: effectiveTime,
       };
     }
 
+    // Between 15 minutes and 60 minutes = Offline (minutes)
     if (diffMinutes < 60) {
       return {
         userId,
