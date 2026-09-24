@@ -12,9 +12,9 @@ export interface ServerGenerationOptions {
 }
 
 const CANDIDATE_MODELS = [
-  'gemini-1.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
 ];
 
@@ -90,7 +90,7 @@ ${sanitizedContent}
 
   for (const model of CANDIDATE_MODELS) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const payload = JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: 'application/json' },
@@ -103,6 +103,7 @@ ${sanitizedContent}
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey.trim(),
               'Content-Length': Buffer.byteLength(payload),
             },
             timeout: 35000,

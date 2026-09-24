@@ -22,25 +22,23 @@ export interface GenerationOptions {
  */
 export async function testGeminiApiKey(candidateKey: string): Promise<{ valid: boolean; message: string; model?: string }> {
   const cleanKey = candidateKey.trim();
-  if (!cleanKey) {
-    return { valid: false, message: 'Please enter a Gemini API key.' };
-  }
-  if (!cleanKey.startsWith('AIzaSy')) {
-    return {
-      valid: false,
-      message: 'Invalid key format. Google AI Studio keys must start with "AIzaSy".',
-    };
+  if (!cleanKey || cleanKey.length < 15) {
+    return { valid: false, message: 'Please enter a valid Google AI Studio API key.' };
   }
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${cleanKey}`);
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash', {
+      headers: {
+        'x-goog-api-key': cleanKey,
+      },
+    });
     if (res.ok) {
-      return { valid: true, message: 'Google Gemini API Key is valid and active! ✨', model: 'gemini-1.5-flash' };
+      return { valid: true, message: 'Google Gemini AI Studio key is active & verified! ✨', model: 'gemini-3.6-flash' };
     }
     const data = await res.json().catch(() => ({}));
     return {
       valid: false,
-      message: data?.error?.message || 'Google rejected this API key. Please check your AI Studio dashboard.',
+      message: data?.error?.message || 'Google rejected this API key. Please verify in your Google AI Studio dashboard.',
     };
   } catch (err: any) {
     return {
@@ -69,8 +67,8 @@ export async function generateStudyMaterial(
     : (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || '' : '') ||
       (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY.trim() : '');
 
-  // Only call direct Gemini if key is in valid format (avoids sending bogus tokens)
-  if (apiKey && apiKey.startsWith('AIzaSy')) {
+  // Only call direct Gemini if key format is provided
+  if (apiKey && apiKey.length >= 15) {
     try {
       const result = await callGeminiAPI(content, { ...options, apiKey });
       if (result) return result;
@@ -442,9 +440,9 @@ function shuffleArray<T>(array: T[]): T[] {
  */
 async function callGeminiAPI(content: string, options: GenerationOptions) {
   const candidateModels = [
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
     'gemini-flash-latest',
   ];
 
@@ -508,10 +506,13 @@ ${sanitizedContent}
 
   for (const model of candidateModels) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${options.apiKey}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': options.apiKey || '',
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: 'application/json' },

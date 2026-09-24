@@ -743,9 +743,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${apiKey.trim().startsWith('AIzaSy') ? 'bg-emerald-500 shadow-xs shadow-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${apiKey.trim().length >= 15 ? 'bg-emerald-500 shadow-xs shadow-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                   <span className="font-extrabold text-chobee-navy-900">
-                    Engine: {apiKey.trim().startsWith('AIzaSy') ? 'Google Gemini AI (100% High-Yield College Accuracy)' : 'Offline Smart Parser (Document-Grounded)'}
+                    Engine: {apiKey.trim().length >= 15 ? 'Google Gemini AI (100% High-Yield College Accuracy)' : 'Offline Smart Parser (Document-Grounded)'}
                   </span>
                 </div>
                 <button
@@ -776,7 +776,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <div className="flex gap-2">
                     <input
                       type="password"
-                      placeholder="Paste key starting with AIzaSy..."
+                      placeholder="Paste key (e.g. AQ... or AIzaSy...)"
                       value={apiKey}
                       onChange={(e) => {
                         setApiKey(e.target.value);
