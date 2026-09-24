@@ -34,6 +34,7 @@ import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
 import { UsageView } from './components/UsageView';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LandingView } from './components/LandingView';
 import { useAuth } from './context/AuthContext';
 import { ROMANTIC_DATA } from './data/memories';
@@ -462,10 +463,15 @@ export function App() {
 
         {activeTab === 'admin' && (
           isAdmin ? (
-            <AdminDashboard
-              onBackToDashboard={() => setActiveTab('dashboard')}
-              soundEnabled={soundEnabled}
-            />
+            <ErrorBoundary 
+              fallbackTitle="Admin Console Loading Error"
+              onReset={() => setActiveTab('dashboard')}
+            >
+              <AdminDashboard
+                onBackToDashboard={() => setActiveTab('dashboard')}
+                soundEnabled={soundEnabled}
+              />
+            </ErrorBoundary>
           ) : (
             <div className="py-16 text-center space-y-3">
               <div className="text-4xl">🔒</div>

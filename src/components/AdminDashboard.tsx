@@ -133,16 +133,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             const uUsage = usageMap.get(p.id);
             return {
               id: p.id,
-              email: p.email,
-              displayName: p.display_name,
-              role: p.role,
+              email: p.email || '',
+              displayName: p.display_name || p.email?.split('@')[0] || 'User',
+              role: p.role || 'free',
               plan: p.plan || 'free',
               dailyTokenLimit: p.daily_token_limit || 100,
-              referralCode: p.referral_code,
-              referredBy: p.referred_by,
-              createdAt: p.created_at,
-              lastLogin: p.last_login_at,
-              lastSeenAt: p.last_seen_at,
+              referralCode: p.referral_code || 'NONE',
+              referredBy: p.referred_by || undefined,
+              createdAt: p.created_at || new Date().toISOString(),
+              lastLogin: p.last_login_at || undefined,
+              lastSeenAt: p.last_seen_at || undefined,
               isDisabled: Boolean(p.is_disabled),
               todayUsage: {
                 used: uUsage?.tokens_used || 0,
@@ -154,7 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setUsers(mapped);
           setMetrics({
             totalUsers: mapped.length,
-            activeUsersToday: mapped.filter((u) => u.lastLogin && u.lastLogin.startsWith(today)).length,
+            activeUsersToday: mapped.filter((u) => typeof u.lastLogin === 'string' && u.lastLogin.startsWith(today)).length,
             aiRequestsToday: 0,
             totalTokensConsumedToday: mapped.reduce((acc, u) => acc + (u.todayUsage?.used || 0), 0),
             mostUsedFeature: 'flashcards',
@@ -512,16 +512,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Filtered users
   const filteredUsers = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
     return usersWithPresence.filter((u) => {
-      const matchesSearch =
-        u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.referralCode.toLowerCase().includes(searchQuery.toLowerCase());
+      const name = (u.displayName || 'User').toLowerCase();
+      const mail = (u.email || '').toLowerCase();
+      const ref = (u.referralCode || '').toLowerCase();
+
+      const matchesSearch = !q || name.includes(q) || mail.includes(q) || ref.includes(q);
 
       if (!matchesSearch) return false;
-      if (statusFilter === 'online') return u.presence.status === 'online';
-      if (statusFilter === 'recent') return u.presence.status === 'recent';
-      if (statusFilter === 'offline') return u.presence.status === 'offline';
+      const status = u.presence?.status || 'offline';
+      if (statusFilter === 'online') return status === 'online';
+      if (statusFilter === 'recent') return status === 'recent';
+      if (statusFilter === 'offline') return status === 'offline';
       return true;
     });
   }, [usersWithPresence, searchQuery, statusFilter]);
@@ -541,16 +544,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Registered At'
     ];
     const rows = filteredUsers.map((u) => [
-      `"${u.displayName.replace(/"/g, '""')}"`,
-      `"${u.email}"`,
-      u.presence.status,
-      u.role,
-      u.dailyTokenLimit,
+      `"${(u.displayName || 'User').replace(/"/g, '""')}"`,
+      `"${u.email || ''}"`,
+      u.presence?.status || 'offline',
+      u.role || 'free',
+      u.dailyTokenLimit || 100,
       u.todayUsage?.used || 0,
-      u.todayUsage?.remaining ?? u.dailyTokenLimit,
-      u.referralCode,
+      u.todayUsage?.remaining ?? (u.dailyTokenLimit || 100),
+      u.referralCode || '',
       u.isDisabled ? 'Yes' : 'No',
-      u.createdAt
+      u.createdAt || ''
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -802,14 +805,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-400 to-purple-400 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
-                            {u.displayName.charAt(0).toUpperCase()}
+                            {(u.displayName || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="font-bold text-chobee-navy-950 flex items-center gap-1.5">
-                              <span>{u.displayName}</span>
+                              <span>{u.displayName || 'User'}</span>
                               {isUserAdmin && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">{u.email || ''}</div>
                           </div>
                         </div>
                       </td>
@@ -935,14 +938,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Profile Header */}
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-400 to-purple-500 text-white text-xl font-black flex items-center justify-center shadow-md">
-                {selectedUserForDetails.displayName.charAt(0).toUpperCase()}
+                {(selectedUserForDetails.displayName || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
                 <h3 className="text-xl font-black text-chobee-navy-950 font-display flex items-center gap-2">
-                  <span>{selectedUserForDetails.displayName}</span>
+                  <span>{selectedUserForDetails.displayName || 'User'}</span>
                   {selectedUserForDetails.role === 'admin' && <Crown className="w-4 h-4 text-amber-500 fill-amber-400" />}
                 </h3>
-                <p className="text-xs text-slate-500 font-mono">{selectedUserForDetails.email}</p>
+                <p className="text-xs text-slate-500 font-mono">{selectedUserForDetails.email || ''}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
                     selectedUserForDetails.isDisabled

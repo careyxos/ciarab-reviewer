@@ -31,8 +31,34 @@ export interface AggregatedUserPresence {
 let activeChannel: RealtimeChannel | null = null;
 let heartbeatInterval: any = null;
 let currentLocalSession: PresenceSession | null = null;
+const presenceListeners = new Set<(presenceMap: Map<string, PresenceSession[]>) => void>();
 
 export const getLocalPresenceSession = (): PresenceSession | null => currentLocalSession;
+
+export const notifyPresenceListeners = () => {
+  const presenceMap = new Map<string, PresenceSession[]>();
+
+  if (currentLocalSession) {
+    presenceMap.set(currentLocalSession.userId, [currentLocalSession]);
+  }
+
+  if (activeChannel) {
+    try {
+      const state = activeChannel.presenceState<PresenceSession>();
+      Object.entries(state).forEach(([userId, sessions]) => {
+        if (Array.isArray(sessions) && sessions.length > 0) {
+          presenceMap.set(userId, sessions);
+        }
+      });
+    } catch (err) {}
+  }
+
+  presenceListeners.forEach((listener) => {
+    try {
+      listener(new Map(presenceMap));
+    } catch (e) {}
+  });
+};
 
 // ==============================================================================
 // CLIENT-SIDE PRESENCE TRACKING (Per Tab / Device)
@@ -69,13 +95,23 @@ export const startPresenceTracking = (user: { id: string; email: string; display
     },
   });
 
+  // Attach all handlers BEFORE calling subscribe
   channel
     .on('presence', { event: 'sync' }, () => {
-      // Sync handled by listener
+      notifyPresenceListeners();
+    })
+    .on('presence', { event: 'join' }, () => {
+      notifyPresenceListeners();
+    })
+    .on('presence', { event: 'leave' }, () => {
+      notifyPresenceListeners();
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        await channel.track(sessionPayload);
+        try {
+          await channel.track(sessionPayload);
+        } catch (e) {}
+        notifyPresenceListeners();
       }
     });
 
@@ -141,6 +177,8 @@ export const stopPresenceTracking = () => {
     } catch (e) {}
     activeChannel = null;
   }
+
+  notifyPresenceListeners();
 };
 
 // ==============================================================================
@@ -150,65 +188,31 @@ export const stopPresenceTracking = () => {
 export const subscribeToAdminPresence = (
   onPresenceUpdate: (presenceMap: Map<string, PresenceSession[]>) => void
 ): (() => void) => {
-  const supabase = getSupabase();
+  presenceListeners.add(onPresenceUpdate);
 
-  const buildAndEmitPresence = (chan?: RealtimeChannel | null) => {
-    const presenceMap = new Map<string, PresenceSession[]>();
-
-    // Always include current local user session if active
-    if (currentLocalSession) {
-      presenceMap.set(currentLocalSession.userId, [currentLocalSession]);
-    }
-
-    if (chan) {
-      try {
-        const state = chan.presenceState<PresenceSession>();
-        Object.entries(state).forEach(([userId, sessions]) => {
-          if (Array.isArray(sessions) && sessions.length > 0) {
-            presenceMap.set(userId, sessions);
-          }
-        });
-      } catch (err) {}
-    }
-
-    onPresenceUpdate(presenceMap);
-  };
-
-  // Immediate initial emission
-  buildAndEmitPresence(activeChannel);
-
-  if (!supabase) return () => {};
-
-  // Connect to the exact same presence room where users track their sessions
-  const channel = activeChannel || supabase.channel('chobee-presence-room', {
-    config: {
-      presence: {
-        key: currentLocalSession?.userId || 'admin-dashboard',
-      },
-    },
-  });
-
-  const syncHandler = () => {
-    buildAndEmitPresence(channel);
-  };
-
-  channel
-    .on('presence', { event: 'sync' }, syncHandler)
-    .on('presence', { event: 'join' }, syncHandler)
-    .on('presence', { event: 'leave' }, syncHandler);
-
-  channel.subscribe((status) => {
-    if (status === 'SUBSCRIBED') {
-      buildAndEmitPresence(channel);
-    }
-  });
+  // Immediately notify on the next event loop tick with current known sessions
+  setTimeout(() => {
+    try {
+      const presenceMap = new Map<string, PresenceSession[]>();
+      if (currentLocalSession) {
+        presenceMap.set(currentLocalSession.userId, [currentLocalSession]);
+      }
+      if (activeChannel) {
+        try {
+          const state = activeChannel.presenceState<PresenceSession>();
+          Object.entries(state).forEach(([userId, sessions]) => {
+            if (Array.isArray(sessions) && sessions.length > 0) {
+              presenceMap.set(userId, sessions);
+            }
+          });
+        } catch (err) {}
+      }
+      onPresenceUpdate(new Map(presenceMap));
+    } catch (e) {}
+  }, 0);
 
   return () => {
-    try {
-      if (channel !== activeChannel) {
-        channel.unsubscribe();
-      }
-    } catch (e) {}
+    presenceListeners.delete(onPresenceUpdate);
   };
 };
 
