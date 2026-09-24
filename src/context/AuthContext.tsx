@@ -26,6 +26,7 @@ interface AuthContextType {
   closeAuthModal: () => void;
   login: (email: string, pass: string) => Promise<void>;
   signup: (email: string, pass: string, name: string, refCode?: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   resetPassword: (email: string, newPass: string) => Promise<string>;
   updateProfile: (name: string) => Promise<void>;
@@ -68,14 +69,144 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // Check initial session (Supabase Auth first, then Serverless fallback)
+  // Reusable helper to hydrate user profile & usage from Supabase Auth + Database
+  const hydrateUserFromSupabase = async (authUser: any, session?: any): Promise<boolean> => {
+    const supabase = getSupabase();
+    if (!supabase) return false;
+
+    try {
+      // 1. Fetch user profile from public.profiles
+      let { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      const isWhitelistedAdmin = ADMIN_WHITELIST.includes(authUser.email?.toLowerCase().trim() || '');
+      const googleName = authUser.user_metadata?.full_name || 
+        authUser.user_metadata?.name || 
+        authUser.user_metadata?.display_name || 
+        authUser.email?.split('@')[0] || 
+        'Scholar';
+      const googleAvatar = authUser.user_metadata?.avatar_url || 
+        authUser.user_metadata?.picture || 
+        null;
+
+      // Auto-create/upsert profile if missing (e.g. fresh OAuth sign-in before trigger finishes)
+      if (!profile) {
+        const uniqueRefCode = `CHOBEE-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const initialRole = isWhitelistedAdmin ? 'admin' : 'free';
+        const initialLimit = isWhitelistedAdmin ? 999999 : 100;
+
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authUser.id,
+            email: authUser.email || '',
+            display_name: googleName,
+            avatar_url: googleAvatar,
+            role: initialRole,
+            plan: isWhitelistedAdmin ? 'unlimited' : 'free',
+            daily_token_limit: initialLimit,
+            referral_code: uniqueRefCode,
+            referred_by: referralQueryCode || (authUser.user_metadata?.referred_by ?? null),
+            last_login_at: new Date().toISOString(),
+            last_seen_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (!insertError && newProfile) {
+          profile = newProfile;
+        }
+      } else {
+        // Sync avatar or timestamp if newer metadata is present
+        const updates: any = {
+          last_login_at: new Date().toISOString(),
+          last_seen_at: new Date().toISOString(),
+        };
+        if (!profile.avatar_url && googleAvatar) {
+          updates.avatar_url = googleAvatar;
+        }
+        await supabase.from('profiles').update(updates).eq('id', authUser.id);
+      }
+
+      const isUserAdmin = isWhitelistedAdmin || profile?.role === 'admin';
+      const userProfile: UserProfile = {
+        id: authUser.id,
+        email: authUser.email || profile?.email || '',
+        displayName: profile?.display_name || googleName,
+        avatarUrl: profile?.avatar_url || googleAvatar || undefined,
+        role: isUserAdmin ? 'admin' : (profile?.role || 'free'),
+        referralCode: profile?.referral_code || 'CHOBEE-USER',
+        referredBy: profile?.referred_by,
+        dailyTokenLimit: isUserAdmin ? 999999 : (profile?.daily_token_limit || 100),
+        createdAt: profile?.created_at || authUser.created_at || new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      setUser(userProfile);
+      setStoredUser(userProfile);
+      if (session?.access_token) {
+        setStoredToken(session.access_token);
+      }
+
+      // 2. Fetch daily usage
+      const todayStr = new Date().toISOString().split('T')[0];
+      let { data: usageData } = await supabase
+        .from('daily_usage')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .eq('date', todayStr)
+        .maybeSingle();
+
+      if (!usageData) {
+        const allocated = isUserAdmin ? 999999 : (userProfile.dailyTokenLimit || 100);
+        const { data: newUsage } = await supabase
+          .from('daily_usage')
+          .insert({
+            user_id: authUser.id,
+            date: todayStr,
+            tokens_allocated: allocated,
+            tokens_used: 0,
+            tokens_remaining: allocated,
+            last_reset_time: new Date().toISOString(),
+          })
+          .select()
+          .maybeSingle();
+        usageData = newUsage;
+      }
+
+      if (usageData) {
+        const allocated = isUserAdmin ? 999999 : Math.min(100, usageData.tokens_allocated);
+        const remaining = isUserAdmin ? 999999 : Math.min(allocated, usageData.tokens_remaining);
+        setDailyUsage({
+          allocated,
+          used: usageData.tokens_used,
+          remaining,
+          resetCountdown: '00h 00m',
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('Supabase hydration error:', err);
+      return false;
+    }
+  };
+
+  // Check initial session & register Supabase Auth State Change Listener
   useEffect(() => {
+    let isMounted = true;
+    const supabase = getSupabase();
+
     const initAuth = async () => {
       const token = getStoredToken();
       const cached = getStoredUser();
 
       // Fast hydration from cache
-      if (cached) {
+      if (cached && isMounted) {
         setUser(cached);
         const limit = cached.role === 'admin' ? 999999 : (cached.dailyTokenLimit || 100);
         setDailyUsage((prev) => ({
@@ -86,57 +217,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // Check Supabase Auth if configured
-      const supabase = getSupabase();
       if (isSupabaseConfigured() && supabase) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const authUser = session.user;
-            // Fetch profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', authUser.id)
-              .single();
-
-            const isUserAdmin = profile?.role === 'admin' || ADMIN_WHITELIST.includes(authUser.email?.toLowerCase() || '');
-            const userProfile: UserProfile = {
-              id: authUser.id,
-              email: authUser.email || '',
-              displayName: profile?.display_name || authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'Scholar',
-              role: isUserAdmin ? 'admin' : (profile?.role || 'free'),
-              referralCode: profile?.referral_code || 'CHOBEE-USER',
-              referredBy: profile?.referred_by,
-              dailyTokenLimit: isUserAdmin ? 999999 : 100,
-              createdAt: profile?.created_at || authUser.created_at,
-            };
-
-            setUser(userProfile);
-            setStoredUser(userProfile);
-            if (session.access_token) setStoredToken(session.access_token);
-
-            // Fetch usage
-            const todayStr = new Date().toISOString().split('T')[0];
-            const { data: usageData } = await supabase
-              .from('daily_usage')
-              .select('*')
-              .eq('user_id', authUser.id)
-              .eq('date', todayStr)
-              .single();
-
-            if (usageData) {
-              const allocated = isUserAdmin ? 999999 : Math.min(100, usageData.tokens_allocated);
-              const remaining = isUserAdmin ? 999999 : Math.min(allocated, usageData.tokens_remaining);
-              setDailyUsage({
-                allocated,
-                used: usageData.tokens_used,
-                remaining,
-                resetCountdown: '00h 00m',
-              });
+          if (session?.user && isMounted) {
+            const success = await hydrateUserFromSupabase(session.user, session);
+            if (success && isMounted) {
+              setIsLoading(false);
+              return;
             }
-
-            setIsLoading(false);
-            return;
           }
         } catch (supabaseErr) {
           console.warn('Supabase auth session check fallback:', supabaseErr);
@@ -145,40 +234,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Serverless fallback verification
       if (!token || !token.includes('.')) {
-        if (!cached) {
+        if (!cached && isMounted) {
           clearStoredAuth();
           setUser(null);
         }
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
         return;
       }
 
       try {
         const data = await apiRequest<{ user: UserProfile; usage: DailyUsageState }>('/api/auth/me');
-        setUser(data.user);
-        setStoredUser(data.user);
-        if (data.usage) {
-          const isUserAdmin = data.user.role === 'admin';
-          const allocated = isUserAdmin ? 999999 : Math.min(100, data.usage.allocated);
-          const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.usage.remaining);
-          setDailyUsage({
-            ...data.usage,
-            allocated,
-            remaining,
-          });
+        if (isMounted) {
+          setUser(data.user);
+          setStoredUser(data.user);
+          if (data.usage) {
+            const isUserAdmin = data.user.role === 'admin';
+            const allocated = isUserAdmin ? 999999 : Math.min(100, data.usage.allocated);
+            const remaining = isUserAdmin ? 999999 : Math.min(allocated, data.usage.remaining);
+            setDailyUsage({
+              ...data.usage,
+              allocated,
+              remaining,
+            });
+          }
         }
       } catch (err: any) {
         console.warn('Could not verify server session:', err);
-        if (err?.status === 401) {
+        if (err?.status === 401 && isMounted) {
           clearStoredAuth();
           setUser(null);
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     initAuth();
+
+    // Active auth state change listener to catch OAuth redirects, token refreshes, and multi-tab sync
+    let authListenerSubscription: any = null;
+    if (isSupabaseConfigured() && supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!isMounted) return;
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (session?.user) {
+            await hydrateUserFromSupabase(session.user, session);
+            setIsLoading(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          clearStoredAuth();
+          setUser(null);
+          setDailyUsage(DEFAULT_USAGE);
+          setIsLoading(false);
+        }
+      });
+      authListenerSubscription = subscription;
+    }
+
+    return () => {
+      isMounted = false;
+      if (authListenerSubscription) {
+        authListenerSubscription.unsubscribe();
+      }
+    };
   }, []);
 
   // Multi-Device Presence Tracking: automatically tracks presence when user is logged in
@@ -488,6 +606,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const loginWithGoogle = async () => {
+    const supabase = getSupabase();
+    if (!isSupabaseConfigured() || !supabase) {
+      throw new Error('Supabase authentication is not configured yet. Please check environment variables.');
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+
+    if (error) {
+      console.error('Google OAuth error:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     stopPresenceTracking();
     const supabase = getSupabase();
@@ -597,6 +738,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         closeAuthModal,
         login,
         signup,
+        loginWithGoogle,
         logout,
         resetPassword,
         updateProfile,

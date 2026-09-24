@@ -4,12 +4,15 @@ export interface UserProfile {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl?: string;
   role: UserRole;
   referralCode: string;
   referredBy?: string;
   dailyTokenLimit: number;
   createdAt: string;
   lastLogin?: string;
+  lastSeenAt?: string;
+  updatedAt?: string;
 }
 
 export interface DailyUsageState {

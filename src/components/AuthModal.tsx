@@ -30,7 +30,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   soundEnabled = true,
 }) => {
-  const { login, signup, resetPassword, referralQueryCode } = useAuth();
+  const { login, signup, loginWithGoogle, resetPassword, referralQueryCode } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>(initialMode);
   
   // Form fields
@@ -42,6 +42,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   
   // States
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -58,6 +59,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   }, [initialMode, referralQueryCode, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleGoogleSignIn = async () => {
+    if (soundEnabled) playHapticTap();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsGoogleSubmitting(true);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error('Google Sign-In failed:', err);
+      setErrorMessage(err?.message || 'Failed to initialize Google Sign-In. Please check your network connection.');
+      setIsGoogleSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
