@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { StudySet } from '../types/study';
 import { generateStudyMaterial, GenerationOptions } from '../services/aiService';
-import { extractTextFromPDF } from '../services/pdfParser';
+import { extractTextFromDocument } from '../services/documentParser';
 import { playCelebrationSound, playHapticTap } from '../services/audioService';
 import { sanitizeCard } from '../services/storageService';
 import { 
@@ -243,45 +243,23 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     // STEP 2: Extract text from document / notes / URL
     try {
       if (activeTab === 'upload' && file) {
-        if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
-          rawContent = await extractTextFromPDF(file);
-        } else if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv')) {
-          rawContent = await file.text();
-        } else {
-          const raw = await file.text();
-          const clean = raw.replace(/[^A-Za-z0-9\s.,?!:;'"()\-]/g, ' ').slice(0, 8000);
-          rawContent = clean.length > 50 ? clean : `Study concepts extracted from ${file.name}.`;
-        }
+        rawContent = await extractTextFromDocument(file);
       } else if (activeTab === 'url') {
         rawContent = `Reference Document: ${title.trim() || 'Online Study Material'}\nSource URL: ${externalUrl}\nTopic: ${category}\nComprehensive review of examination terms, operational guidelines, and foundational principles.`;
       } else {
-        rawContent = pastedText;
+        rawContent = pastedText.trim();
       }
-    } catch (err) {
-      console.warn('File read error:', err);
-      rawContent = `Study notes on ${title || file?.name || 'Reviewer'}.\nCore definitions, principles, and practice questions.`;
+    } catch (err: any) {
+      console.error('File extraction error:', err);
+      setIsGenerating(false);
+      setFileError(err?.message || 'Could not extract text from this document. Please ensure it has readable text.');
+      return;
     }
 
-    // Clean any binary stream artifacts
-    if (
-      rawContent.includes('FlateDecode') || 
-      rawContent.includes('stream EQ') || 
-      rawContent.includes('1.7 obj') ||
-      rawContent.includes('endstream')
-    ) {
-      const cleanName = title.trim() || file?.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') || 'Lecture Notes';
-      rawContent = `Comprehensive Study Material: ${cleanName}
-Overview: Essential theoretical concepts, operational standards, review summaries, and examination guidelines for ${cleanName}.
-1. Operational Standards: Standardized operating procedures executed to guarantee efficiency, accuracy, and institutional compliance.
-2. Resource Management: Strategic allocation of logistics, budgeting, materials, and human resources to achieve milestones.
-3. Protocol and Precedence: The formal order, etiquette, and guidelines followed in ceremonies and meetings.
-4. Risk Management: Pre-planned response mechanisms designed to mitigate disruptions and equipment malfunctions.
-5. Quality Assurance: Systematic review procedures conducted before live execution or examination assessments.
-6. Documentation: Transparent reporting, milestone logs, and post-activity evaluations to verify outcomes.`;
-    }
-
-    if (!rawContent.trim()) {
-      rawContent = `Study set for ${title || 'General Review'}.\nCore principles, definition of terms, operations, and review guidelines.`;
+    if (!rawContent || rawContent.trim().length < 15) {
+      setIsGenerating(false);
+      setFileError('The document contains too little readable text to generate study materials.');
+      return;
     }
 
     setGenerationStep(2);
