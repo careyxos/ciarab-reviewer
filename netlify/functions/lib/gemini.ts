@@ -12,10 +12,10 @@ export interface ServerGenerationOptions {
 }
 
 const CANDIDATE_MODELS = [
-  'gemini-flash-lite-latest',
-  'gemini-flash-latest',
+  'gemini-1.5-flash',
   'gemini-2.0-flash',
-  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+  'gemini-flash-latest',
 ];
 
 export async function callServerGemini(
@@ -30,38 +30,58 @@ export async function callServerGemini(
   // Enforce document length limit to prevent abuse
   const sanitizedContent = content.slice(0, 50000);
 
-  const prompt = `You are a warm, supportive study assistant named "Baby Bear Chobee" creating high-yield study materials for a student platform.
+  const prompt = `You are a master academic educator and exam prep specialist creating high-yield, university-grade study materials and mock exam questions.
 Analyze the following study material and return a STRICT valid JSON object with the following structure:
 {
   "flashcards": [
     {
-      "front": "Question or term",
-      "back": "Clear, concise definition or answer",
-      "hint": "Brief clue",
+      "front": "Specific question, definition prompt, or concept to identify",
+      "back": "Clear, precise explanation or definition based directly on the text",
+      "hint": "Brief memory clue",
       "category": "${options.category}",
-      "aiExplanation": "Warm Taglish explanation starting with 'Chobee tip: ganito lang yan...'"
+      "aiExplanation": "Warm and clear study tip in ${options.language} (e.g. 'Study Tip: Ganito lang yan...')"
     }
   ],
   "quizQuestions": [
     {
       "type": "multiple_choice",
-      "question": "Question text",
+      "question": "Realistic, high-yield examination question testing facts or concepts from the text",
       "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": "Exact matching option",
-      "explanation": "Brief rationale",
+      "correctAnswer": "Exact matching option among the 4 choices",
+      "explanation": "Detailed rationale explaining why this answer is correct and why other choices are incorrect based on the text",
       "topicCategory": "${options.category}"
     }
   ],
   "summary": {
-    "overview": "High-level summary",
-    "keyConcepts": [{"title": "Concept Name", "explanation": "Details", "keyPoints": ["Bullet 1", "Bullet 2"]}],
-    "glossary": [{"term": "Term", "definition": "Def"}],
-    "examQuestions": [{"question": "Q", "modelAnswer": "A", "difficulty": "Medium"}]
+    "overview": "Comprehensive overview of the subject matter covered in the material",
+    "keyConcepts": [
+      {
+        "title": "Concept Module Name",
+        "explanation": "Detailed synthesized explanation",
+        "keyPoints": ["High-yield bullet point 1", "High-yield bullet point 2", "High-yield bullet point 3"]
+      }
+    ],
+    "glossary": [
+      {"term": "Technical Term", "definition": "Direct factual definition from the text"}
+    ],
+    "examQuestions": [
+      {
+        "question": "Comprehensive analytical essay or problem question based on the text",
+        "modelAnswer": "Complete, high-scoring model answer based on the material",
+        "difficulty": "Medium"
+      }
+    ]
   }
 }
 
-Generate at least ${Math.min(options.cardCount || 10, 30)} flashcards and ${Math.min(options.quizCount || 10, 50)} quiz questions.
-Difficulty: ${options.difficulty || 'Mixed'}. Language: ${options.language || 'Taglish'}. Tone: Encouraging, sweet, engaging study coach.
+CRITICAL ACCURACY GUIDELINES:
+1. Every single question, card, and explanation MUST be derived 100% directly from the provided Material Content below.
+2. DO NOT make up generic placeholders or unrelated management/event protocols unless they appear in the material.
+3. Multiple-choice questions MUST feature 4 plausible, distinct choices (1 unambiguously correct, 3 realistic distractors).
+4. Difficulty level: ${options.difficulty || 'Mixed'}.
+5. Language: ${options.language || 'Taglish'}.
+6. Generate at least ${Math.min(options.cardCount || 10, 30)} flashcards and ${Math.min(options.quizCount || 10, 50)} quiz questions.
+
 Material Content:
 ${sanitizedContent}
 `;

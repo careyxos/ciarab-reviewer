@@ -16,10 +16,12 @@ import {
   Link2,
   FileCheck,
   ShieldCheck,
-  BookOpen
+  BookOpen,
+  Key,
+  ExternalLink
 } from 'lucide-react';
 import { StudySet } from '../types/study';
-import { generateStudyMaterial, GenerationOptions } from '../services/aiService';
+import { generateStudyMaterial, GenerationOptions, testGeminiApiKey } from '../services/aiService';
 import { extractTextFromDocument } from '../services/documentParser';
 import { playCelebrationSound, playHapticTap } from '../services/audioService';
 import { sanitizeCard } from '../services/storageService';
@@ -79,6 +81,37 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   ]);
   const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Mixed'>('Mixed');
   const [language, setLanguage] = useState<'English' | 'Tagalog' | 'Taglish'>('Taglish');
+
+  // Google Gemini API Key state
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || '' : '');
+  });
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const [testingKey, setTestingKey] = useState(false);
+  const [keyValidationStatus, setKeyValidationStatus] = useState<{ valid?: boolean; message?: string } | null>(null);
+
+  const handleTestAndSaveKey = async () => {
+    if (!apiKey.trim()) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('chobee_gemini_api_key');
+      }
+      setKeyValidationStatus({ valid: false, message: 'Gemini key removed. The built-in document extractor will be used.' });
+      return;
+    }
+    setTestingKey(true);
+    setKeyValidationStatus(null);
+    try {
+      const res = await testGeminiApiKey(apiKey.trim());
+      setKeyValidationStatus(res);
+      if (res.valid && typeof window !== 'undefined') {
+        localStorage.setItem('chobee_gemini_api_key', apiKey.trim());
+      }
+    } catch (e: any) {
+      setKeyValidationStatus({ valid: false, message: e?.message || 'Could not verify key.' });
+    } finally {
+      setTestingKey(false);
+    }
+  };
 
   // Generation loading states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -266,7 +299,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     // STEP 3: AI Generation
     try {
-      const activeApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || undefined : undefined);
+      const activeApiKey = apiKey.trim() || (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || undefined : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
       const options: GenerationOptions = {
         title: title.trim() || (activeTab === 'upload' && file ? file.name.replace(/\.[^/.]+$/, '') : activeTab === 'url' ? 'Web Document Reviewer' : 'Lecture Notes Reviewer'),
         category,
@@ -704,6 +737,71 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <option value="Tagalog">Tagalog (Formal)</option>
                 </select>
               </div>
+            </div>
+
+            {/* AI Engine Status & Key Management */}
+            <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${apiKey.trim().startsWith('AIzaSy') ? 'bg-emerald-500 shadow-xs shadow-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className="font-extrabold text-chobee-navy-900">
+                    Engine: {apiKey.trim().startsWith('AIzaSy') ? 'Google Gemini AI (100% High-Yield College Accuracy)' : 'Offline Smart Parser (Document-Grounded)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowApiSettings(!showApiSettings)}
+                  className="text-[11px] font-bold text-chobee-pink-600 hover:text-chobee-pink-700 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Key className="w-3 h-3" />
+                  <span>{showApiSettings ? 'Hide' : 'Gemini Key (Free)'}</span>
+                </button>
+              </div>
+
+              {showApiSettings && (
+                <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Para sa pinakamatalinong mock exam at quizzes na akmang-akma sa exam niyo, maglagay ng Google Gemini API Key mula sa Google AI Studio (100% Free).
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-chobee-pink-600 font-bold hover:underline inline-flex items-center gap-0.5 ml-1"
+                    >
+                      <span>Kumuha ng libreng key</span>
+                      <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                  </p>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Paste key starting with AIzaSy..."
+                      value={apiKey}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setKeyValidationStatus(null);
+                      }}
+                      className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-chobee-navy-900 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTestAndSaveKey}
+                      disabled={testingKey}
+                      className="px-3 py-1.5 rounded-xl bg-chobee-navy-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {testingKey ? 'Testing...' : 'Verify & Save'}
+                    </button>
+                  </div>
+
+                  {keyValidationStatus && (
+                    <p className={`text-[11px] font-bold px-1 flex items-center gap-1 ${keyValidationStatus.valid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {keyValidationStatus.valid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                      <span>{keyValidationStatus.message}</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Token Cost and Balance Info */}
