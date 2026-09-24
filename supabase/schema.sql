@@ -94,12 +94,84 @@ CREATE TABLE IF NOT EXISTS public.study_materials (
   category TEXT DEFAULT 'General',
   data JSONB NOT NULL,
   is_favorite BOOLEAN DEFAULT FALSE,
+  is_public BOOLEAN DEFAULT FALSE,
+  share_code TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Safe migrations if columns were not previously present
+ALTER TABLE public.study_materials ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.study_materials ADD COLUMN IF NOT EXISTS share_code TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_study_materials_user ON public.study_materials(user_id);
 CREATE INDEX IF NOT EXISTS idx_study_materials_updated ON public.study_materials(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_materials_public ON public.study_materials(is_public) WHERE is_public = TRUE;
+CREATE INDEX IF NOT EXISTS idx_study_materials_share ON public.study_materials(share_code) WHERE share_code IS NOT NULL;
+
+-- ==============================================================================
+-- 6B. Study Files Metadata Table (PDF, DOCX, PPTX, TXT, External URLs)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.study_files (
+  id TEXT PRIMARY KEY DEFAULT ('file_' || extract(epoch from now())::bigint || '_' || substr(md5(random()::text), 1, 8)),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  study_set_id TEXT REFERENCES public.study_materials(id) ON DELETE SET NULL,
+  file_name TEXT NOT NULL,
+  file_type TEXT NOT NULL,
+  file_size BIGINT NOT NULL DEFAULT 0,
+  storage_path TEXT,
+  source_type TEXT NOT NULL CHECK (source_type IN ('upload', 'external_url', 'manual_notes')),
+  source_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_files_user ON public.study_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_study_files_set ON public.study_files(study_set_id);
+CREATE INDEX IF NOT EXISTS idx_study_files_type ON public.study_files(source_type);
+CREATE INDEX IF NOT EXISTS idx_study_files_created ON public.study_files(user_id, created_at DESC);
+
+-- ==============================================================================
+-- 6C. Study Notes Table (Manually Created Notes Content - Stored in Database)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.study_notes (
+  id TEXT PRIMARY KEY DEFAULT ('note_' || extract(epoch from now())::bigint || '_' || substr(md5(random()::text), 1, 8)),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  study_set_id TEXT REFERENCES public.study_materials(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_notes_user ON public.study_notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_study_notes_set ON public.study_notes(study_set_id);
+CREATE INDEX IF NOT EXISTS idx_study_notes_created ON public.study_notes(user_id, created_at DESC);
+
+-- ==============================================================================
+-- 6D. Supabase Storage Bucket Initialization (Private study-files bucket)
+-- ==============================================================================
+-- Ensure the storage bucket exists, is strictly private, and has security limits
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'study-files',
+  'study-files',
+  FALSE,
+  52428800, -- 50 MB limit
+  ARRAY[
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint',
+    'text/plain',
+    'text/markdown',
+    'text/csv'
+  ]
+)
+ON CONFLICT (id) DO UPDATE SET 
+  public = FALSE,
+  file_size_limit = 52428800;
 
 -- ==============================================================================
 -- 7. Database Stored Procedures & Functions
@@ -391,12 +463,151 @@ CREATE POLICY "Users can view own logs or admins view all"
   ON public.ai_usage_logs FOR SELECT
   USING (auth.uid() = user_id OR public.is_admin());
 
--- STUDY MATERIALS POLICIES (Strict User Isolation)
+-- STUDY MATERIALS POLICIES (Secure Sharing + Strict Data Ownership)
 DROP POLICY IF EXISTS "Users can manage own study materials" ON public.study_materials;
-CREATE POLICY "Users can manage own study materials"
-  ON public.study_materials FOR ALL
+DROP POLICY IF EXISTS "Users can view own or public study materials" ON public.study_materials;
+DROP POLICY IF EXISTS "Users can insert own study materials" ON public.study_materials;
+DROP POLICY IF EXISTS "Users can update own study materials" ON public.study_materials;
+DROP POLICY IF EXISTS "Users can delete own study materials" ON public.study_materials;
+
+-- SELECT: Owner, Admin, or Public/Shared sets
+CREATE POLICY "Users can view own or public study materials"
+  ON public.study_materials FOR SELECT
+  USING (auth.uid() = user_id OR is_public = TRUE OR public.is_admin());
+
+-- INSERT: Only owner or admin
+CREATE POLICY "Users can insert own study materials"
+  ON public.study_materials FOR INSERT
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+-- UPDATE: Only owner or admin
+CREATE POLICY "Users can update own study materials"
+  ON public.study_materials FOR UPDATE
   USING (auth.uid() = user_id OR public.is_admin())
   WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+-- DELETE: Only owner or admin
+CREATE POLICY "Users can delete own study materials"
+  ON public.study_materials FOR DELETE
+  USING (auth.uid() = user_id OR public.is_admin());
+
+-- ------------------------------------------------------------------------------
+-- STUDY FILES POLICIES
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.study_files ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own or public study files" ON public.study_files;
+DROP POLICY IF EXISTS "Users can insert own study files" ON public.study_files;
+DROP POLICY IF EXISTS "Users can update own study files" ON public.study_files;
+DROP POLICY IF EXISTS "Users can delete own study files" ON public.study_files;
+
+-- SELECT: Owner, Admin, or files linked to a public study set
+CREATE POLICY "Users can view own or public study files"
+  ON public.study_files FOR SELECT
+  USING (
+    auth.uid() = user_id 
+    OR public.is_admin()
+    OR (
+      study_set_id IS NOT NULL 
+      AND EXISTS (
+        SELECT 1 FROM public.study_materials 
+        WHERE public.study_materials.id = public.study_files.study_set_id 
+        AND public.study_materials.is_public = TRUE
+      )
+    )
+  );
+
+-- INSERT: Owner or admin
+CREATE POLICY "Users can insert own study files"
+  ON public.study_files FOR INSERT
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+-- UPDATE: Owner or admin
+CREATE POLICY "Users can update own study files"
+  ON public.study_files FOR UPDATE
+  USING (auth.uid() = user_id OR public.is_admin())
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+-- DELETE: Owner or admin
+CREATE POLICY "Users can delete own study files"
+  ON public.study_files FOR DELETE
+  USING (auth.uid() = user_id OR public.is_admin());
+
+-- ------------------------------------------------------------------------------
+-- STUDY NOTES POLICIES
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.study_notes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own or public study notes" ON public.study_notes;
+DROP POLICY IF EXISTS "Users can insert own study notes" ON public.study_notes;
+DROP POLICY IF EXISTS "Users can update own study notes" ON public.study_notes;
+DROP POLICY IF EXISTS "Users can delete own study notes" ON public.study_notes;
+
+CREATE POLICY "Users can view own or public study notes"
+  ON public.study_notes FOR SELECT
+  USING (
+    auth.uid() = user_id 
+    OR public.is_admin()
+    OR (
+      study_set_id IS NOT NULL 
+      AND EXISTS (
+        SELECT 1 FROM public.study_materials 
+        WHERE public.study_materials.id = public.study_notes.study_set_id 
+        AND public.study_materials.is_public = TRUE
+      )
+    )
+  );
+
+CREATE POLICY "Users can insert own study notes"
+  ON public.study_notes FOR INSERT
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+CREATE POLICY "Users can update own study notes"
+  ON public.study_notes FOR UPDATE
+  USING (auth.uid() = user_id OR public.is_admin())
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+CREATE POLICY "Users can delete own study notes"
+  ON public.study_notes FOR DELETE
+  USING (auth.uid() = user_id OR public.is_admin());
+
+-- ------------------------------------------------------------------------------
+-- STORAGE BUCKET POLICIES (study-files: Private, user-isolated folders)
+-- ------------------------------------------------------------------------------
+-- Pattern: study-files/{user_id}/{file_id}/{file_name}
+DROP POLICY IF EXISTS "Users can upload own study files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view own study files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own study files" ON storage.objects;
+
+CREATE POLICY "Users can upload own study files"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'study-files' 
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can view own study files"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'study-files' 
+    AND (
+      (storage.foldername(name))[1] = auth.uid()::text
+      OR public.is_admin()
+    )
+  );
+
+CREATE POLICY "Users can delete own study files"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'study-files' 
+    AND (
+      (storage.foldername(name))[1] = auth.uid()::text
+      OR public.is_admin()
+    )
+  );
 
 -- ==============================================================================
 -- 9. Enable Realtime Publications
@@ -430,5 +641,12 @@ BEGIN
     WHERE pubname = 'supabase_realtime' AND tablename = 'study_materials'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.study_materials;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'study_files'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.study_files;
   END IF;
 END $$;

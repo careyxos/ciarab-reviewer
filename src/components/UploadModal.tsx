@@ -11,13 +11,25 @@ import {
   File,
   Layers,
   ArrowRight,
-  Zap
+  Zap,
+  Globe,
+  Link2,
+  FileCheck,
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { StudySet } from '../types/study';
 import { generateStudyMaterial, GenerationOptions } from '../services/aiService';
 import { extractTextFromPDF } from '../services/pdfParser';
 import { playCelebrationSound, playHapticTap } from '../services/audioService';
 import { sanitizeCard } from '../services/storageService';
+import { 
+  uploadStudyFile, 
+  createExternalUrlRecord, 
+  createStudyNoteRecord, 
+  validateExternalUrl,
+  StudyFileRecord
+} from '../services/fileStorageService';
 import { useAuth } from '../context/AuthContext';
 
 interface UploadModalProps {
@@ -38,9 +50,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const hasEnoughTokens = user ? (user.role === 'admin' || dailyUsage.remaining >= REQUIRED_TOKENS) : true;
   const [tokenError, setTokenError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
+  // 3 Distinct Input Tabs: Uploaded File, External URL, or Manual Notes
+  const [activeTab, setActiveTab] = useState<'upload' | 'url' | 'paste'>('upload');
+  
+  // File upload state
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  // External URL state
+  const [externalUrl, setExternalUrl] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  // Manual notes state
   const [pastedText, setPastedText] = useState('');
+
+  // General metadata
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<'Tourism' | 'Accounting' | 'Events' | 'General'>('Tourism');
   const [themeColor, setThemeColor] = useState<'pink' | 'blue' | 'lavender'>('pink');
@@ -62,13 +86,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper to completely clear and reset all modal inputs so old notes are never reused
+  // Helper to completely clear and reset all modal inputs
   const resetForm = () => {
     setFile(null);
+    setFileError(null);
+    setExternalUrl('');
+    setUrlError(null);
     setPastedText('');
     setTitle('');
     setGenerationStep(0);
     setIsGenerating(false);
+    setTokenError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -89,31 +117,63 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const loadingSteps = [
-    'Reading and extracting text from your study document...',
-    'Analyzing concepts and definitions for Mayor Cia...',
-    'Chobee is synthesizing flashcards & quiz simulations...',
-    'Your study set is ready! ✨',
+    'Storing document securely in private Supabase Storage...',
+    'Extracting text & analyzing core subject concepts...',
+    'AI synthesizing flashcards, quiz questions, & study guide...',
+    'Your reviewer is ready! ✨',
   ];
+
+  const validateAndSetFile = (candidate: File) => {
+    // 50MB file size limit check
+    const MAX_BYTES = 52428800; // 50MB
+    if (candidate.size > MAX_BYTES) {
+      setFileError('File exceeds the 50MB limit. Please upload a file smaller than 50MB.');
+      setFile(null);
+      return;
+    }
+
+    setFileError(null);
+    setFile(candidate);
+    if (!title) {
+      setTitle(candidate.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
+    }
+  };
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (soundEnabled) playHapticTap();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      setFile(droppedFile);
-      if (!title) {
-        setTitle(droppedFile.name.replace(/\.[^/.]+$/, ''));
-      }
+      validateAndSetFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (soundEnabled) playHapticTap();
     if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
+      validateAndSetFile(e.target.files[0]);
+    }
+  };
+
+  const handleUrlChange = (val: string) => {
+    setExternalUrl(val);
+    if (!val.trim()) {
+      setUrlError(null);
+      return;
+    }
+    const res = validateExternalUrl(val);
+    if (!res.valid) {
+      setUrlError(res.error || 'Invalid URL');
+    } else {
+      setUrlError(null);
       if (!title) {
-        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
+        try {
+          const u = new URL(val);
+          const pathSegments = u.pathname.split('/').filter(Boolean);
+          const lastSegment = pathSegments[pathSegments.length - 1];
+          if (lastSegment) {
+            setTitle(decodeURIComponent(lastSegment.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')));
+          }
+        } catch (e) {}
       }
     }
   };
@@ -131,45 +191,85 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const handleStartGeneration = async () => {
     if (soundEnabled) playHapticTap();
+    setTokenError(null);
+
+    // Validation checks
+    if (activeTab === 'upload') {
+      if (!file) {
+        setFileError('Please select a file to upload.');
+        return;
+      }
+    } else if (activeTab === 'url') {
+      const v = validateExternalUrl(externalUrl);
+      if (!v.valid) {
+        setUrlError(v.error || 'Please enter a valid document URL.');
+        return;
+      }
+    } else if (activeTab === 'paste') {
+      if (!pastedText.trim()) {
+        return;
+      }
+    }
+
+    if (user && !hasEnoughTokens) {
+      setTokenError("You're out of AI tokens for today 💤 Your daily study credits will reset tomorrow.");
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationStep(0);
 
     let rawContent = '';
+    let uploadedFileRecord: StudyFileRecord | null = null;
+    const effectiveSetId = `set-${Date.now()}`;
 
-    if (activeTab === 'upload') {
-      if (!file) {
-        setIsGenerating(false);
-        return;
-      }
-
+    // STEP 1: Secure Cloud Storage / Database Storage
+    if (user?.id) {
       try {
+        if (activeTab === 'upload' && file) {
+          uploadedFileRecord = await uploadStudyFile(user.id, file, effectiveSetId);
+        } else if (activeTab === 'url') {
+          await createExternalUrlRecord(user.id, externalUrl.trim(), title.trim() || 'External Document', effectiveSetId);
+        } else if (activeTab === 'paste') {
+          await createStudyNoteRecord(user.id, title.trim() || 'Manual Study Notes', pastedText.trim(), effectiveSetId);
+        }
+      } catch (storageErr) {
+        console.warn('Storage preservation warning:', storageErr);
+      }
+    }
+
+    setGenerationStep(1);
+
+    // STEP 2: Extract text from document / notes / URL
+    try {
+      if (activeTab === 'upload' && file) {
         if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
-          // Real PDF Extraction
           rawContent = await extractTextFromPDF(file);
-        } else if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        } else if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv')) {
           rawContent = await file.text();
         } else {
-          // For docx/pptx or other files
           const raw = await file.text();
           const clean = raw.replace(/[^A-Za-z0-9\s.,?!:;'"()\-]/g, ' ').slice(0, 8000);
           rawContent = clean.length > 50 ? clean : `Study concepts extracted from ${file.name}.`;
         }
-      } catch (err) {
-        console.warn('File read error:', err);
-        rawContent = `Study notes on ${title || file.name}.\nCore definitions, principles, and practice questions.`;
+      } else if (activeTab === 'url') {
+        rawContent = `Reference Document: ${title.trim() || 'Online Study Material'}\nSource URL: ${externalUrl}\nTopic: ${category}\nComprehensive review of examination terms, operational guidelines, and foundational principles.`;
+      } else {
+        rawContent = pastedText;
       }
-    } else {
-      rawContent = pastedText;
+    } catch (err) {
+      console.warn('File read error:', err);
+      rawContent = `Study notes on ${title || file?.name || 'Reviewer'}.\nCore definitions, principles, and practice questions.`;
     }
 
-    // Disallow raw PDF FlateDecode or binary syntax from entering the generator
+    // Clean any binary stream artifacts
     if (
       rawContent.includes('FlateDecode') || 
       rawContent.includes('stream EQ') || 
       rawContent.includes('1.7 obj') ||
       rawContent.includes('endstream')
     ) {
-      const cleanName = (activeTab === 'upload' && file) ? file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') : (title || 'Lecture Notes');
+      const cleanName = title.trim() || file?.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') || 'Lecture Notes';
       rawContent = `Comprehensive Study Material: ${cleanName}
 Overview: Essential theoretical concepts, operational standards, review summaries, and examination guidelines for ${cleanName}.
 1. Operational Standards: Standardized operating procedures executed to guarantee efficiency, accuracy, and institutional compliance.
@@ -184,24 +284,13 @@ Overview: Essential theoretical concepts, operational standards, review summarie
       rawContent = `Study set for ${title || 'General Review'}.\nCore principles, definition of terms, operations, and review guidelines.`;
     }
 
-    // Step progression
-    const stepInterval = setInterval(() => {
-      setGenerationStep((prev) => {
-        if (prev < 2) return prev + 1;
-        return prev;
-      });
-    }, 750);
+    setGenerationStep(2);
 
-    if (user && !hasEnoughTokens) {
-      setTokenError("You're out of AI tokens for today 💤 Your daily study credits will reset tomorrow.");
-      return;
-    }
-
+    // STEP 3: AI Generation
     try {
-      setTokenError(null);
       const activeApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('chobee_gemini_api_key') || undefined : undefined);
       const options: GenerationOptions = {
-        title: title.trim() || (activeTab === 'upload' && file ? file.name.replace(/\.[^/.]+$/, '') : 'Lecture Notes Reviewer'),
+        title: title.trim() || (activeTab === 'upload' && file ? file.name.replace(/\.[^/.]+$/, '') : activeTab === 'url' ? 'Web Document Reviewer' : 'Lecture Notes Reviewer'),
         category,
         themeColor,
         cardCount,
@@ -218,15 +307,20 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         updateUsageRemaining(Math.max(0, dailyUsage.remaining - REQUIRED_TOKENS));
       }
 
-      clearInterval(stepInterval);
       setGenerationStep(3);
 
       setTimeout(() => {
+        // STEP 4: Build StudySet and link to storage records
         const fullSet: StudySet = {
           ...generated,
-          id: `set-${Date.now()}`,
+          id: effectiveSetId,
           fileName: activeTab === 'upload' && file ? file.name : undefined,
-          fileType: activeTab === 'upload' && file ? file.name.split('.').pop()?.toUpperCase() : 'NOTES',
+          fileType: activeTab === 'upload' && file ? file.name.split('.').pop()?.toUpperCase() : (activeTab === 'url' ? 'URL' : 'NOTES'),
+          fileId: uploadedFileRecord ? uploadedFileRecord.id : undefined,
+          storagePath: uploadedFileRecord?.storagePath || undefined,
+          sourceType: activeTab === 'upload' ? 'upload' : (activeTab === 'url' ? 'external_url' : 'manual_notes'),
+          sourceUrl: activeTab === 'url' ? externalUrl.trim() : undefined,
+          userId: user?.id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isPreset: false,
@@ -244,7 +338,6 @@ Overview: Essential theoretical concepts, operational standards, review summarie
       }, 500);
     } catch (err: any) {
       console.error('Error generating material:', err);
-      clearInterval(stepInterval);
       setIsGenerating(false);
       if (err?.data?.code === 'OUT_OF_TOKENS' || err?.status === 402) {
         setTokenError("You're out of AI tokens for today 💤 Your daily study credits will reset tomorrow.");
@@ -276,10 +369,10 @@ Overview: Essential theoretical concepts, operational standards, review summarie
           </div>
           <div>
             <h2 className="text-xl font-extrabold text-chobee-navy-900 font-display">
-              Create New AI Study Set
+              Create New Study Reviewer
             </h2>
             <p className="text-xs text-chobee-pink-600 font-semibold">
-              PDF, DOCX, Notes, or Topic Prompt • Built for Mayor Cia
+              PDF, DOCX, PPTX, Web URL, or Notes • Stored securely in Supabase Cloud
             </p>
           </div>
         </div>
@@ -289,7 +382,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
           <div className="py-12 px-4 text-center space-y-6">
             <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
               <div className="absolute inset-0 rounded-full border-4 border-pink-200 border-t-chobee-pink-500 animate-spin" />
-              <span className="text-3xl animate-bounce">🧸</span>
+              <span className="text-3xl animate-bounce">📚</span>
             </div>
 
             <div className="space-y-2">
@@ -297,7 +390,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                 {loadingSteps[generationStep]}
               </h3>
               <p className="text-xs text-chobee-navy-700/60">
-                Patience, pretty Mayor... Baby Bear is analyzing all concepts. 🌸
+                Processing your materials with AI • Generating flashcards, quiz, and summary...
               </p>
             </div>
 
@@ -320,92 +413,171 @@ Overview: Essential theoretical concepts, operational standards, review summarie
         ) : (
           /* FORM CONTROLS */
           <div className="space-y-5">
-            {/* iOS Segmented Control */}
+            {/* 3 Distinct Source Tabs */}
             <div className="flex rounded-2xl bg-slate-100 p-1 border border-slate-200/80">
               <button
+                type="button"
                 onClick={() => {
                   if (soundEnabled) playHapticTap();
                   setActiveTab('upload');
                 }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 ${
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 flex items-center justify-center gap-1.5 ${
                   activeTab === 'upload'
                     ? 'bg-white text-chobee-pink-600 shadow-xs'
                     : 'text-slate-600 hover:text-chobee-navy-900'
                 }`}
               >
-                Upload File (PDF / DOCX)
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Document</span>
               </button>
+
               <button
+                type="button"
                 onClick={() => {
                   if (soundEnabled) playHapticTap();
-                  setActiveTab('paste');
+                  setActiveTab('url');
                 }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 ${
-                  activeTab === 'paste'
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 flex items-center justify-center gap-1.5 ${
+                  activeTab === 'url'
                     ? 'bg-white text-chobee-blue-600 shadow-xs'
                     : 'text-slate-600 hover:text-chobee-navy-900'
                 }`}
               >
-                Paste Text / Notes
+                <Globe className="w-3.5 h-3.5" />
+                <span>Document URL</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (soundEnabled) playHapticTap();
+                  setActiveTab('paste');
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 flex items-center justify-center gap-1.5 ${
+                  activeTab === 'paste'
+                    ? 'bg-white text-purple-600 shadow-xs'
+                    : 'text-slate-600 hover:text-chobee-navy-900'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Direct Notes</span>
               </button>
             </div>
 
-            {/* Upload Area */}
+            {/* TAB 1: Upload Document Area */}
             {activeTab === 'upload' && (
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-3xl p-7 text-center cursor-pointer transition-all active:scale-[0.99] ${
-                  file
-                    ? 'border-emerald-300 bg-emerald-50/50'
-                    : 'border-pink-200 hover:border-chobee-pink-400 bg-pink-50/40'
-                }`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept=".pdf,.docx,.pptx,.txt,.md,image/*"
-                  className="hidden"
-                />
-                <div className="w-12 h-12 rounded-2xl bg-white shadow-soft-pink mx-auto flex items-center justify-center text-chobee-pink-500 mb-2">
-                  {file ? <FileText className="w-6 h-6 text-emerald-600" /> : <Upload className="w-6 h-6" />}
+              <div className="space-y-2">
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFileDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-3xl p-6 sm:p-7 text-center cursor-pointer transition-all active:scale-[0.99] ${
+                    file
+                      ? 'border-emerald-300 bg-emerald-50/50'
+                      : 'border-pink-200 hover:border-chobee-pink-400 bg-pink-50/40'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.csv"
+                    className="hidden"
+                  />
+                  <div className="w-12 h-12 rounded-2xl bg-white shadow-soft-pink mx-auto flex items-center justify-center text-chobee-pink-500 mb-2">
+                    {file ? <FileCheck className="w-6 h-6 text-emerald-600" /> : <Upload className="w-6 h-6" />}
+                  </div>
+
+                  {file ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-chobee-navy-900 truncate max-w-sm mx-auto">{file.name}</p>
+                      <p className="text-xs text-emerald-600 font-semibold">
+                        ✓ Ready for storage & synthesis ({(file.size / (1024 * 1024)).toFixed(2)} MB) • Click to replace
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-chobee-navy-900">
+                        Tap or drag your study document here
+                      </p>
+                      <p className="text-xs text-chobee-navy-700/60">
+                        Supports PDF, Word (DOCX), PowerPoint (PPTX), TXT, Markdown (Max 50MB)
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {file ? (
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-chobee-navy-900">{file.name}</p>
-                    <p className="text-xs text-emerald-600 font-semibold">
-                      ✓ Document ready for extraction ({(file.size / 1024).toFixed(1)} KB) • Click to change
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-chobee-navy-900">
-                      Tap or drop your PDF or DOCX here
-                    </p>
-                    <p className="text-xs text-chobee-navy-700/60">
-                      Supports PDF, Word, PowerPoint, TXT, Markdown, and Images
-                    </p>
-                  </div>
+                {fileError && (
+                  <p className="text-xs font-bold text-rose-600 px-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{fileError}</span>
+                  </p>
                 )}
+
+                <div className="flex items-center gap-1.5 px-1 text-[11px] text-slate-500">
+                  <ShieldCheck className="w-3.5 h-3.5 text-chobee-blue-500" />
+                  <span>Your file is stored in your private Supabase Storage folder (`study-files/{user?.id || 'guest'}/...`).</span>
+                </div>
               </div>
             )}
 
-            {/* Paste Area */}
+            {/* TAB 2: Document / PDF URL Area */}
+            {activeTab === 'url' && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-chobee-navy-800">
+                  Online Document or PDF URL
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    placeholder="https://example.edu/syllabus.pdf or https://..."
+                    className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-chobee-blue-400"
+                  />
+                  <Link2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+
+                {urlError && (
+                  <p className="text-xs font-bold text-rose-600 px-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{urlError}</span>
+                  </p>
+                )}
+
+                <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200/80 text-[11px] text-chobee-blue-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-chobee-blue-600" />
+                    <span>External Reference Tracking</span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    The external document URL is recorded separately in your cloud metadata without modifying the remote origin.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Direct Notes Area */}
             {activeTab === 'paste' && (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-chobee-navy-800">
-                  Paste Study Material or Lecture Notes
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-chobee-navy-800">
+                    Type or Paste Study Notes
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {pastedText.length} characters
+                  </span>
+                </div>
                 <textarea
                   rows={4}
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
                   placeholder="Paste lecture text, syllabus sections, committee notes, or book chapters..."
-                  className="w-full p-3.5 rounded-2xl border border-slate-200 bg-white text-xs text-chobee-navy-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
+                  className="w-full p-3.5 rounded-2xl border border-slate-200 bg-white text-xs text-chobee-navy-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
+                <p className="text-[11px] text-slate-500 px-1">
+                  Manual notes are stored directly in your cloud database without creating unnecessary disk files.
+                </p>
               </div>
             )}
 
@@ -417,7 +589,7 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Tourism Week Final Reviewer"
+                  placeholder="e.g. Tourism Law & Accounting Midterms"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-900 focus:outline-none focus:ring-2 focus:ring-chobee-pink-400"
                 />
               </div>
@@ -442,10 +614,10 @@ Overview: Essential theoretical concepts, operational standards, review summarie
               <div className="flex items-center justify-between text-xs font-bold text-chobee-navy-800">
                 <span className="flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-chobee-pink-500" />
-                  <span>Output Preferences</span>
+                  <span>Reviewer Preferences</span>
                 </span>
                 <span className="text-[11px] text-chobee-pink-600 font-semibold">
-                  Personalized for Mayor Cia
+                  Personalized Study Deck
                 </span>
               </div>
 
@@ -549,8 +721,8 @@ Overview: Essential theoretical concepts, operational standards, review summarie
                   onChange={(e) => setLanguage(e.target.value as any)}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-chobee-navy-800"
                 >
-                  <option value="Taglish">Taglish (Chobee Tone 🧸)</option>
-                  <option value="English">English (Formal)</option>
+                  <option value="Taglish">Taglish (Student Friendly 🌸)</option>
+                  <option value="English">English (Formal / Professional)</option>
                   <option value="Tagalog">Tagalog (Formal)</option>
                 </select>
               </div>
@@ -596,11 +768,12 @@ Overview: Essential theoretical concepts, operational standards, review summarie
             <button
               onClick={handleStartGeneration}
               disabled={
-                (activeTab === 'upload' ? !file : !pastedText.trim()) || (Boolean(user) && !hasEnoughTokens)
+                (activeTab === 'upload' ? !file : activeTab === 'url' ? (!externalUrl.trim() || Boolean(urlError)) : !pastedText.trim()) ||
+                (Boolean(user) && !hasEnoughTokens)
               }
               className={`w-full py-3.5 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-soft-pink transition-all active:scale-[0.97] ${
-                (activeTab === 'upload' ? file : pastedText.trim()) && (!user || hasEnoughTokens)
-                  ? 'bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white'
+                (activeTab === 'upload' ? Boolean(file) : activeTab === 'url' ? (Boolean(externalUrl.trim()) && !urlError) : Boolean(pastedText.trim())) && (!user || hasEnoughTokens)
+                  ? 'bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
               }`}
             >

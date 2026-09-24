@@ -55,6 +55,32 @@ export interface StudySummary {
   examQuestions: ExamQuestion[];
 }
 
+export type FileSourceType = 'upload' | 'external_url' | 'manual_notes';
+
+export interface StudyFileRecord {
+  id: string;
+  userId: string;
+  studySetId?: string | null;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  storagePath?: string | null;
+  sourceType: FileSourceType;
+  sourceUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyNoteRecord {
+  id: string;
+  userId: string;
+  studySetId?: string | null;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StudySet {
   id: string;
   title: string;
@@ -63,6 +89,10 @@ export interface StudySet {
   tags: string[];
   fileName?: string;
   fileType?: string;
+  fileId?: string;
+  storagePath?: string;
+  sourceType?: FileSourceType;
+  sourceUrl?: string;
   flashcards: Flashcard[];
   quizQuestions: QuizQuestion[];
   summary: StudySummary;
@@ -71,6 +101,9 @@ export interface StudySet {
   lastStudied?: string;
   isPreset?: boolean;
   isFavorite?: boolean;
+  isPublic?: boolean;
+  shareCode?: string;
+  userId?: string;
   themeColor: 'pink' | 'blue' | 'lavender';
   author: string;
 }

@@ -316,6 +316,7 @@ export function parseSharedSetFromUrl(): StudySet | null {
 // ==============================================================================
 import { getSupabase, isSupabaseConfigured } from './supabaseClient';
 import { apiRequest } from './apiClient';
+import { deleteFilesForStudySet } from './fileStorageService';
 
 export async function fetchCloudStudySets(userId: string): Promise<StudySet[]> {
   const supabase = getSupabase();
@@ -331,9 +332,16 @@ export async function fetchCloudStudySets(userId: string): Promise<StudySet[]> {
         const sets: StudySet[] = data.map((row: any) => ({
           ...row.data,
           id: row.id,
+          userId: row.user_id,
           title: row.title || row.data?.title,
           category: row.category || row.data?.category,
           isFavorite: row.is_favorite ?? row.data?.isFavorite,
+          isPublic: row.is_public ?? row.data?.isPublic,
+          shareCode: row.share_code ?? row.data?.shareCode,
+          fileId: row.data?.fileId,
+          storagePath: row.data?.storagePath,
+          sourceType: row.data?.sourceType,
+          sourceUrl: row.data?.sourceUrl,
         }));
         saveStoredStudySets(sets);
         return sets;
@@ -353,6 +361,8 @@ export async function fetchCloudStudySets(userId: string): Promise<StudySet[]> {
         title: m.title || m.data?.title,
         category: m.category || m.data?.category,
         isFavorite: m.isFavorite ?? m.data?.isFavorite,
+        isPublic: m.isPublic ?? m.data?.isPublic,
+        shareCode: m.shareCode ?? m.data?.shareCode,
       }));
       saveStoredStudySets(sets);
       return sets;
@@ -363,6 +373,36 @@ export async function fetchCloudStudySets(userId: string): Promise<StudySet[]> {
 
   // If no cloud data found yet, return cached or initial study sets
   return getStoredStudySets();
+}
+
+export async function fetchSharedStudySet(shareIdOrCode: string): Promise<StudySet | null> {
+  const supabase = getSupabase();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('study_materials')
+        .select('*')
+        .or(`id.eq.${shareIdOrCode},share_code.eq.${shareIdOrCode}`)
+        .eq('is_public', true)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          ...data.data,
+          id: data.id,
+          userId: data.user_id,
+          title: data.title || data.data?.title,
+          category: data.category || data.data?.category,
+          isFavorite: false,
+          isPublic: true,
+          shareCode: data.share_code,
+        };
+      }
+    } catch (e) {
+      console.warn('Fetch shared study set error:', e);
+    }
+  }
+  return null;
 }
 
 export async function saveStudySetToCloud(userId: string, set: StudySet): Promise<void> {
@@ -383,6 +423,8 @@ export async function saveStudySetToCloud(userId: string, set: StudySet): Promis
           category: set.category || 'General',
           data: set,
           is_favorite: Boolean(set.isFavorite),
+          is_public: Boolean(set.isPublic),
+          share_code: set.shareCode || null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -410,6 +452,13 @@ export async function saveStudySetToCloud(userId: string, set: StudySet): Promis
 export async function deleteStudySetFromCloud(userId: string, setId: string): Promise<void> {
   const current = getStoredStudySets().filter((s) => s.id !== setId);
   saveStoredStudySets(current);
+
+  // Safely clean up associated uploaded files and notes for this user
+  try {
+    await deleteFilesForStudySet(userId, setId);
+  } catch (err) {
+    console.warn('Failed to delete associated files for study set:', err);
+  }
 
   const supabase = getSupabase();
   if (isSupabaseConfigured() && supabase) {

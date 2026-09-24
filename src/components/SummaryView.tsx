@@ -9,9 +9,14 @@ import {
   ChevronUp, 
   FileText, 
   Sparkles,
-  Share2
+  Share2,
+  Download,
+  ExternalLink,
+  Globe,
+  FileCheck
 } from 'lucide-react';
 import { StudySet } from '../types/study';
+import { getSignedFileUrl } from '../services/fileStorageService';
 
 interface SummaryViewProps {
   studySet: StudySet;
@@ -26,6 +31,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 }) => {
   const { summary } = studySet;
   const [expandedExamIndex, setExpandedExamIndex] = useState<number | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const toggleExamAnswer = (idx: number) => {
     setExpandedExamIndex((prev) => (prev === idx ? null : idx));
@@ -33,6 +39,23 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadOriginalFile = async () => {
+    if (!studySet.storagePath) return;
+    setIsDownloading(true);
+    try {
+      const signedUrl = await getSignedFileUrl(studySet.storagePath, 3600);
+      if (signedUrl) {
+        window.open(signedUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('Could not generate download link. Please ensure you are logged in and have access to this document.');
+      }
+    } catch (e) {
+      console.warn('Download error:', e);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -109,9 +132,45 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
           <h2 className="text-2xl sm:text-3xl font-black text-chobee-navy-900 font-display">
             {studySet.title}
           </h2>
-          <p className="text-xs text-chobee-navy-700/70">
-            Subject Category: <span className="font-semibold text-chobee-navy-900">{studySet.category}</span> • File Reference: <span className="italic">{studySet.fileName || 'Direct Notes'}</span>
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <p className="text-xs text-chobee-navy-700/70">
+              Subject Category: <span className="font-semibold text-chobee-navy-900">{studySet.category}</span> • 
+              Source: <span className="italic font-medium text-chobee-navy-900">
+                {studySet.sourceType === 'upload' 
+                  ? (studySet.fileName || 'Uploaded Document')
+                  : studySet.sourceType === 'external_url'
+                  ? 'External Web Reference'
+                  : 'Manual Study Notes'}
+              </span>
+            </p>
+
+            {/* Source Action Buttons */}
+            <div className="flex items-center gap-2 print:hidden">
+              {studySet.storagePath && (
+                <button
+                  type="button"
+                  onClick={handleDownloadOriginalFile}
+                  disabled={isDownloading}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-chobee-blue-700 text-xs font-bold transition-all shadow-2xs active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isDownloading ? 'Generating Link...' : 'Download Original File'}</span>
+                </button>
+              )}
+
+              {studySet.sourceUrl && (
+                <a
+                  href={studySet.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold transition-all shadow-2xs active:scale-95"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>View Source URL</span>
+                </a>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Executive Overview Section */}

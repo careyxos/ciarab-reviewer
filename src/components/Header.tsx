@@ -20,8 +20,8 @@ import { lofiPlayer, playHapticTap } from '../services/audioService';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
-  activeTab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin';
-  setActiveTab: (tab: 'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin') => void;
+  activeTab: 'dashboard' | 'flashcards' | 'quiz' | 'exam' | 'summary' | 'library' | 'usage' | 'admin';
+  setActiveTab: (tab: 'dashboard' | 'flashcards' | 'quiz' | 'exam' | 'summary' | 'library' | 'usage' | 'admin') => void;
   stats: UserStats;
   onOpenUpload: () => void;
   onOpenMonthsary: () => void;
@@ -49,11 +49,11 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const updateGreeting = () => {
       const hour = new Date().getHours();
-      const name = user ? user.displayName : 'Mayor Cia';
+      const name = user ? user.displayName : 'Student';
       if (hour >= 5 && hour < 12) {
         setGreeting(`Good morning, ${name} 🌸`);
       } else if (hour >= 12 && hour < 18) {
-        setGreeting(`Good afternoon, ${name} 💙`);
+        setGreeting(`Good afternoon, ${name} 🩵`);
       } else {
         setGreeting(`Good evening, ${name} 🌙`);
       }
@@ -88,12 +88,12 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-pink-100/70 shadow-sm transition-all">
       {/* Top Banner with Dynamic Greeting */}
-      <div className="bg-gradient-to-r from-chobee-pink-100/90 via-pink-50 to-chobee-blue-100/90 py-1.5 px-3 sm:px-8 border-b border-pink-200/50">
+      <div className="bg-gradient-to-r from-chobee-pink-100/80 via-white to-chobee-blue-100/80 py-1.5 px-3 sm:px-8 border-b border-pink-200/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-xs sm:text-sm font-medium text-chobee-navy-800">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-2 w-2 rounded-full bg-chobee-pink-400 animate-ping flex-shrink-0" />
-            <span className="font-semibold text-chobee-pink-600 font-display tracking-wide truncate">{greeting}</span>
-            <span className="hidden md:inline text-chobee-navy-700/60">• Rereviewhin ka ng Baby Bear mo 🧸🩵</span>
+            <span className="flex h-2 w-2 rounded-full bg-chobee-pink-500 animate-ping flex-shrink-0" />
+            <span className="font-bold text-chobee-pink-600 font-display tracking-wide truncate">{greeting}</span>
+            <span className="hidden md:inline text-slate-500 font-medium">• Stay focused & ace your exams! 📚</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {/* Ambient Study Beats Button */}
@@ -128,89 +128,101 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Logo & Brand */}
           <div 
             onClick={() => setActiveTab('dashboard')} 
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer group select-none min-w-0"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none min-w-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-chobee-pink-400 via-pink-300 to-chobee-blue-300 p-0.5 shadow-soft-pink group-hover:scale-105 transition-transform duration-300 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-chobee-pink-400 via-pink-300 to-chobee-blue-400 p-0.5 shadow-soft-pink group-hover:scale-105 transition-transform duration-300 flex items-center justify-center flex-shrink-0">
               <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-lg sm:text-xl">
                 🧸
               </div>
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-display font-extrabold text-base sm:text-xl tracking-tight bg-gradient-to-r from-chobee-pink-500 via-purple-600 to-chobee-blue-500 bg-clip-text text-transparent truncate">
-                  Reviewhin na kita
+                <span className="font-display font-extrabold text-base sm:text-xl tracking-tight bg-gradient-to-r from-chobee-pink-600 via-purple-600 to-chobee-blue-600 bg-clip-text text-transparent truncate">
+                  CIA Review
                 </span>
-                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-chobee-pink-100 text-chobee-pink-600 font-bold border border-pink-200 flex-shrink-0">
-                  Chobee
+                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-pink-100 text-chobee-pink-700 font-extrabold border border-pink-200 flex-shrink-0">
+                  Study Platform
                 </span>
               </div>
-              <p className="text-[11px] text-chobee-navy-700/70 hidden sm:block">
-                Smart Study Platform • Built specially for My Mayor Cia
+              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
+                AI Flashcards, Quiz Simulations & Study Guides
               </p>
             </div>
           </div>
 
           {/* Center Navigation Tabs (Desktop) */}
           {isLoggedIn && (
-            <nav className="hidden lg:flex items-center gap-1 bg-slate-100/60 p-1 rounded-2xl border border-slate-200/60 backdrop-blur-md">
+            <nav className="hidden lg:flex items-center gap-1 bg-slate-100/70 p-1 rounded-2xl border border-slate-200/70 backdrop-blur-md">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeTab === 'dashboard'
                     ? 'bg-white text-chobee-pink-600 shadow-sm'
-                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
+                <LayoutDashboard className="w-3.5 h-3.5" />
                 <span>Dashboard</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('library')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeTab === 'library'
                     ? 'bg-white text-chobee-blue-600 shadow-sm'
-                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
                 }`}
               >
-                <Library className="w-4 h-4" />
-                <span>Materials</span>
+                <Library className="w-3.5 h-3.5" />
+                <span>Study Sets</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('flashcards')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeTab === 'flashcards'
                     ? 'bg-white text-purple-600 shadow-sm'
-                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
                 }`}
               >
-                <BrainCircuit className="w-4 h-4" />
+                <BrainCircuit className="w-3.5 h-3.5" />
                 <span>Flashcards</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('quiz')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeTab === 'quiz'
                     ? 'bg-white text-chobee-pink-600 shadow-sm'
-                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Quiz Mode</span>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Quizzes</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('exam')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeTab === 'exam'
+                    ? 'bg-white text-rose-600 shadow-sm'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Mock Exam</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('summary')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeTab === 'summary'
                     ? 'bg-white text-chobee-blue-600 shadow-sm'
-                    : 'text-chobee-navy-700 hover:text-chobee-navy-900 hover:bg-white/50'
+                    : 'text-slate-600 hover:text-chobee-navy-900 hover:bg-white/50'
                 }`}
               >
-                <FileText className="w-4 h-4" />
-                <span>Study Guide</span>
+                <FileText className="w-3.5 h-3.5" />
+                <span>Guide</span>
               </button>
             </nav>
           )}
@@ -248,7 +260,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Primary Action Button: + Create Study Set */}
                 <button
                   onClick={onOpenUpload}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-semibold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95 flex-shrink-0"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-chobee-pink-500 to-chobee-blue-500 hover:from-chobee-pink-600 hover:to-chobee-blue-600 text-white font-bold text-xs sm:text-sm shadow-soft-pink hover:shadow-glow-dual transition-all transform active:scale-95 flex-shrink-0"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Create Set</span>
@@ -264,10 +276,19 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 rounded-2xl bg-white/80 hover:bg-white border border-slate-200/80 shadow-xs transition-all active:scale-95"
                   >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 p-0.5 flex items-center justify-center text-sm shadow-xs">
-                      <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
-                        🧸
-                      </div>
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 p-0.5 flex items-center justify-center text-sm shadow-xs">
+                      {user?.avatarUrl ? (
+                        <img 
+                          src={user.avatarUrl} 
+                          alt={user.displayName} 
+                          className="w-full h-full object-cover rounded-full"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-white rounded-full flex items-center justify-center font-bold text-xs text-chobee-pink-600">
+                          {user?.displayName ? user.displayName.charAt(0).toUpperCase() : '🧸'}
+                        </div>
+                      )}
                     </div>
                     <span className="hidden md:inline font-bold text-xs text-chobee-navy-900 max-w-[85px] truncate">
                       {user?.displayName}
@@ -306,7 +327,7 @@ export const Header: React.FC<HeaderProps> = ({
                           className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
                         >
                           <Library className="w-4 h-4 text-chobee-blue-500" />
-                          <span>My Study Materials</span>
+                          <span>Study Sets Library</span>
                         </button>
 
                         <button
@@ -328,7 +349,7 @@ export const Header: React.FC<HeaderProps> = ({
                           className="w-full px-3 py-2 text-left hover:bg-pink-50/80 flex items-center gap-2.5 transition-colors"
                         >
                           <UserIcon className="w-4 h-4 text-purple-500" />
-                          <span>Profile & Referral Link</span>
+                          <span>Profile & Settings</span>
                         </button>
 
                         {isAdmin && (

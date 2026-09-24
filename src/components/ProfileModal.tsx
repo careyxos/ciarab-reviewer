@@ -9,7 +9,8 @@ import {
   Calendar, 
   ShieldCheck, 
   Sparkles,
-  Edit2
+  Edit2,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playHapticTap } from '../services/audioService';
@@ -25,7 +26,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onClose,
   soundEnabled = true,
 }) => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.displayName || '');
@@ -74,8 +75,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Header with Avatar */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-chobee-pink-400 to-chobee-blue-400 p-0.5 mx-auto mb-3 shadow-soft-pink">
-            <div className="w-full h-full bg-white rounded-2xl flex items-center justify-center text-3xl">
-              🧸
+            <div className="w-full h-full bg-white rounded-2xl flex items-center justify-center text-3xl overflow-hidden">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span>🧸</span>
+              )}
             </div>
           </div>
           <h2 className="text-xl font-black text-chobee-navy-900 font-display">
@@ -189,6 +199,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 )}
               </button>
             </div>
+          </div>
+
+          {/* Account Actions / Sign Out */}
+          <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-semibold">Switch account or sign out</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (soundEnabled) playHapticTap();
+                logout();
+                onClose();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-bold text-xs transition-all active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
           </div>
         </div>
       </div>

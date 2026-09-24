@@ -96,7 +96,7 @@ export function App() {
   const { user, isLoggedIn, isAdmin, isAuthModalOpen, closeAuthModal, authModalMode } = useAuth();
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'flashcards' | 'quiz' | 'summary' | 'library' | 'usage' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'flashcards' | 'quiz' | 'exam' | 'summary' | 'library' | 'usage' | 'admin'>('dashboard');
   const [stats, setStats] = useState<UserStats>(getStoredStats());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -316,7 +316,7 @@ export function App() {
     }
   };
 
-  const handleSelectSet = (set: StudySet, mode: 'flashcards' | 'quiz' | 'summary') => {
+  const handleSelectSet = (set: StudySet, mode: 'flashcards' | 'quiz' | 'exam' | 'summary') => {
     if (soundEnabled) playHapticTap();
     setSelectedSet(set);
     setActiveTab(mode);
@@ -502,6 +502,17 @@ export function App() {
             onSwitchMode={(mode) => setActiveTab(mode as any)}
             onCompleteQuiz={handleCompleteQuiz}
             soundEnabled={soundEnabled}
+            initialExamMode={false}
+          />
+        )}
+
+        {activeTab === 'exam' && selectedSet && (
+          <QuizView
+            studySet={selectedSet}
+            onSwitchMode={(mode) => setActiveTab(mode as any)}
+            onCompleteQuiz={handleCompleteQuiz}
+            soundEnabled={soundEnabled}
+            initialExamMode={true}
           />
         )}
 
@@ -576,13 +587,13 @@ export function App() {
               setActiveTab('quiz');
             }}
             className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl text-[10px] font-extrabold transition-all active:scale-90 ${
-              activeTab === 'quiz'
+              activeTab === 'quiz' || activeTab === 'exam'
                 ? 'bg-chobee-pink-500 text-white shadow-soft-pink'
                 : 'text-chobee-navy-700 hover:text-chobee-pink-600'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Quiz</span>
+            <span>Quiz / Exam</span>
           </button>
           <button
             onClick={() => {
@@ -664,6 +675,7 @@ export function App() {
       <ShareModal
         studySet={shareModalSet}
         onClose={() => setShareModalSet(null)}
+        onUpdateSet={handleUpdateSet}
       />
 
       <SecretMonthsaryModal
